@@ -20,7 +20,7 @@ import { useAuth } from '@/context/AuthContext';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-const GROUP_PHOTO_URL = "";
+const GROUP_PHOTO_URL = "https://lh3.googleusercontent.com/d/1SPESj37CfJVrznPCYT7caFTbHUNk1JCK";
 
 const FALLBACK_BATCHMATES = [
   { studentId: "231701", name: "NAWSHIN KHAN", role: "student", imageUrl: "" },
