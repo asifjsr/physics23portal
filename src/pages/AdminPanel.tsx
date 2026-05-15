@@ -31,6 +31,7 @@ import {
   ToggleLeft, 
   ToggleRight,
   Database,
+  Target,
   Search,
   MoreVertical,
   ChevronRight
@@ -210,6 +211,40 @@ export default function AdminPanel() {
     }
   };
 
+  const seedFundData = async () => {
+    const data = [
+      { title: "Total Collected Money", amount: 2600, type: "income", date: "2024-05-15", note: "Initial collection" },
+      { title: "Ezaz's Expenses", amount: 840, type: "expense", date: "2024-05-15", note: "Expenses for Ezaz" },
+      { title: "Parvez Sir's Farewell", amount: 1000, type: "expense", date: "2024-05-15", note: "Farewell payment" }
+    ];
+
+    setLoading(true);
+    const batch = writeBatch(db);
+    data.forEach(item => {
+      const ref = doc(collection(db, 'classFund'));
+      batch.set(ref, {
+        ...item,
+        createdAt: new Date(),
+        createdBy: profile?.name,
+        createdByUid: profile?.uid
+      });
+    });
+
+    try {
+      await batch.commit();
+      // Also set the goal
+      await updateDoc(doc(db, 'settings', 'app'), {
+        fundGoalAmount: 1500,
+        fundGoalTitle: "Required for Futsal"
+      });
+      alert('Fund data synchronized from the image!');
+    } catch(err: any) {
+      alert(`Sync failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const seedBatchmates = async () => {
     const data = [
       { studentId: "231701", name: "NAWSHIN KHAN", role: "student", imageUrl: "" },
@@ -267,6 +302,11 @@ export default function AdminPanel() {
           <p className="text-gray-400">Manage users, batch data and global settings.</p>
         </div>
         <div className="flex gap-3">
+           {activeTab === 'fund' && (
+             <button onClick={seedFundData} disabled={loading} className="btn-secondary flex items-center gap-2 text-sm h-12 border-blue-500/20 text-blue-400">
+               <Database size={18} /> Sync Fund from Image
+             </button>
+           )}
            <button onClick={seedBatchmates} disabled={loading} className="btn-secondary flex items-center gap-2 text-sm h-12">
              <Database size={18} /> Seed Batchmates
            </button>
@@ -395,6 +435,35 @@ export default function AdminPanel() {
                  <Plus size={16} /> Add New {activeTab === 'album' ? 'Photo' : activeTab.slice(0, -1)}
                </button>
             </div>
+
+            {activeTab === 'fund' && (
+              <div className="glass-card mb-6 p-6 border-purple-500/20 bg-purple-500/5">
+                <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                  <Target size={14} /> Fund Goal Management
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Goal Title</label>
+                    <input 
+                      value={settings?.fundGoalTitle || ''} 
+                      onChange={e => updateDoc(doc(db, 'settings', 'app'), { fundGoalTitle: e.target.value })} 
+                      className="glass-input w-full" 
+                      placeholder="e.g. Required for Futsal" 
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Goal Amount (৳)</label>
+                    <input 
+                      type="number" 
+                      value={settings?.fundGoalAmount || 0} 
+                      onChange={e => updateDoc(doc(db, 'settings', 'app'), { fundGoalAmount: parseFloat(e.target.value) || 0 })} 
+                      className="glass-input w-full" 
+                      placeholder="1500" 
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {(

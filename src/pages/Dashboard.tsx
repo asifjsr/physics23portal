@@ -248,9 +248,21 @@ export default function Dashboard() {
       {/* Quick Overview Stats */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="glass p-5">
-            <div className="text-[12px] text-white/40 uppercase font-bold mb-3 tracking-wider">Batch Fund Balance</div>
+            <div className="text-[12px] text-white/40 uppercase font-bold mb-3 tracking-wider flex items-center justify-between">
+              Batch Fund Balance
+              {settings?.fundGoalAmount && (
+                <span className="text-[9px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20">
+                  Target: {Math.min(100, Math.round((fundBalance / settings.fundGoalAmount) * 100))}%
+                </span>
+              )}
+            </div>
             <div className="text-2xl font-bold text-white leading-none">৳ {fundBalance.toLocaleString()}</div>
-            <div className="text-[12px] text-emerald-400 mt-2 font-medium">+ ৳ {weekIncome.toLocaleString()} this week</div>
+            <div className="text-[12px] text-emerald-400 mt-2 font-medium">
+              {settings?.fundGoalAmount && fundBalance < settings.fundGoalAmount 
+                ? `৳ ${(settings.fundGoalAmount - fundBalance).toLocaleString()} more needed for ${settings.fundGoalTitle || 'Goal'}`
+                : `+ ৳ ${weekIncome.toLocaleString()} this week`
+              }
+            </div>
           </div>
 
         <div className="glass p-5">

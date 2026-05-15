@@ -17,12 +17,46 @@
         "updatedBy": { "type": "string" }
       },
       "required": ["studentId", "name"]
+    },
+    "FundRecord": {
+      "title": "Fund Record",
+      "description": "A transaction record in the batch class fund",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "date": { "type": "string", "format": "date" },
+        "note": { "type": "string" },
+        "addedBy": { "type": "string" },
+        "addedByUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "amount", "type", "date"]
+    },
+    "AppSettings": {
+      "title": "App Settings",
+      "description": "Global settings for the application",
+      "type": "object",
+      "properties": {
+        "loginApprovalRequired": { "type": "boolean" },
+        "fundGoalAmount": { "type": "number" },
+        "fundGoalTitle": { "type": "string" }
+      }
     }
   },
   "firestore": {
     "/batchmates/{studentId}": {
       "schema": "Batchmate",
       "description": "Collection of all students in the batch"
+    },
+    "/classFund/{transactionId}": {
+      "schema": "FundRecord",
+      "description": "Ledger of all income and expenses"
+    },
+    "/settings/app": {
+      "schema": "AppSettings",
+      "description": "Global application configuration"
     }
   }
 }

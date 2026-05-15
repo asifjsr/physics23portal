@@ -16,6 +16,8 @@ interface UserProfile {
 
 interface AppSettings {
   loginApprovalRequired: boolean;
+  fundGoalAmount?: number;
+  fundGoalTitle?: string;
 }
 
 interface AuthContextType {

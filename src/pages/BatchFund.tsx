@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Info, DollarSign, Calendar, Clock, User, Trash2, Edit2 } from 'lucide-react';
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Info, DollarSign, Calendar, Clock, User, Trash2, Edit2, Target, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getPermissions } from '@/lib/permissions';
 import { doc, deleteDoc } from 'firebase/firestore';
@@ -20,7 +20,7 @@ interface FundRecord {
 }
 
 export default function BatchFund() {
-  const { profile } = useAuth();
+  const { profile, settings } = useAuth();
   const { canManageShared } = getPermissions(profile);
   const [funds, setFunds] = useState<FundRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +54,11 @@ export default function BatchFund() {
   const totalExpense = funds.filter(f => f.type === 'expense').reduce((sum, f) => sum + f.amount, 0);
   const balance = totalIncome - totalExpense;
 
+  const goalAmount = settings?.fundGoalAmount || 0;
+  const goalTitle = settings?.fundGoalTitle || 'Fund Goal';
+  const shortfall = Math.max(0, goalAmount - balance);
+  const isMet = balance >= goalAmount && goalAmount > 0;
+
   return (
     <div className="space-y-8 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -71,7 +76,7 @@ export default function BatchFund() {
           </div>
           <p className="text-xs font-bold text-purple-400 uppercase tracking-[0.2em] mb-4">Current Balance</p>
           <h3 className="text-4xl font-extrabold text-white flex items-center gap-2">
-            <span className="text-2xl text-purple-400 opacity-50">$</span>{balance.toLocaleString()}
+            <span className="text-2xl text-purple-400 opacity-50">৳</span>{balance.toLocaleString()}
           </h3>
         </div>
         <div className="glass-card p-8 relative overflow-hidden border-green-500/10">
@@ -80,13 +85,75 @@ export default function BatchFund() {
             <ArrowUpCircle className="text-green-500" size={24} /> {totalIncome.toLocaleString()}
           </h3>
         </div>
-        <div className="glass-card p-8 relative overflow-hidden border-red-500/10">
-          <p className="text-xs font-bold text-red-500 opacity-70 uppercase tracking-[0.2em] mb-4">Total Spent</p>
+        <div className="glass-card p-8 relative overflow-hidden border-orange-500/10">
+          <p className="text-xs font-bold text-orange-500 opacity-70 uppercase tracking-[0.2em] mb-4">Total Spent</p>
           <h3 className="text-3xl font-extrabold text-white flex items-center gap-2">
-            <ArrowDownCircle className="text-red-500" size={24} /> {totalExpense.toLocaleString()}
+            <ArrowDownCircle className="text-orange-500" size={24} /> {totalExpense.toLocaleString()}
           </h3>
         </div>
       </section>
+
+      {/* Goal & Shortfall Card (From Image) */}
+      {goalAmount > 0 && (
+        <section className="animate-in slide-in-from-top-4 duration-500">
+          <div className="glass-card p-1 bg-white/5 border-white/10 overflow-hidden">
+            <div className="p-6 space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                 <div className="flex items-center gap-4">
+                   <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-400">
+                     <Target size={24} />
+                   </div>
+                   <div>
+                     <h4 className="text-sm font-bold text-white uppercase tracking-[0.1em]">{goalTitle}</h4>
+                     <p className="text-xs text-gray-500 mt-0.5">Target amount for the upcoming event.</p>
+                   </div>
+                 </div>
+                 <div className="flex items-baseline gap-2">
+                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Required</span>
+                    <span className="text-2xl font-black text-white">৳ {goalAmount.toLocaleString()}</span>
+                 </div>
+              </div>
+
+              {shortfall > 0 ? (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-between group hover:bg-red-500/20 transition-all">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="text-red-400 animate-pulse" size={18} />
+                    <span className="text-xs font-black text-red-400 uppercase tracking-[0.2em]">Shortfall Detected</span>
+                  </div>
+                  <div className="text-xl font-black text-red-100 flex items-center gap-2">
+                    <span className="text-sm opacity-50">৳</span> {shortfall.toLocaleString()}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-between bg-emerald-500/20 transition-all">
+                   <div className="flex items-center gap-3">
+                    <Check className="text-emerald-400" size={18} />
+                    <span className="text-xs font-black text-emerald-400 uppercase tracking-[0.2em]">Goal Achievement</span>
+                  </div>
+                  <div className="text-xl font-black text-emerald-100 flex items-center gap-2">
+                    <Check className="text-emerald-400" size={24} /> MET
+                  </div>
+                </div>
+              )}
+
+              {/* Progress Bar */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">
+                  <span>Progress</span>
+                  <span>{Math.min(100, Math.round((balance / goalAmount) * 100))}%</span>
+                </div>
+                <div className="h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 p-0.5">
+                   <motion.div 
+                     initial={{ width: 0 }}
+                     animate={{ width: `${Math.min(100, (balance / goalAmount) * 100)}%` }}
+                     className={`h-full rounded-full ${isMet ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]'}`}
+                   />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Transaction List */}
       <section className="space-y-6">
@@ -119,7 +186,7 @@ export default function BatchFund() {
                   <div className="mb-4 lg:mb-0">
                      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-extrabold ${fund.type === 'income' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                         {fund.type === 'income' ? <ArrowUpCircle size={14} /> : <ArrowDownCircle size={14} />}
-                        <span className="opacity-50">$</span>{fund.amount.toLocaleString()}
+                        <span className="opacity-50">৳</span>{fund.amount.toLocaleString()}
                      </div>
                   </div>
                   <div className="flex items-center lg:justify-end gap-3 text-[10px] text-gray-500 font-bold uppercase tracking-widest group">
