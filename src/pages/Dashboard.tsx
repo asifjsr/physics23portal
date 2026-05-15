@@ -87,7 +87,7 @@ interface Assessment {
 }
 
 export default function Dashboard() {
-  const { profile, user } = useAuth();
+  const { profile, user, settings } = useAuth();
   const { canManageShared, isApproved } = getPermissions(profile);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);

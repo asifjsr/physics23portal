@@ -37,10 +37,19 @@ export default function Batchmates() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    const reorderBatchmates = (list: Batchmate[]) => {
+      const specialIds = ["221703", "221730", "221740"];
+      const normal = list.filter(p => !specialIds.includes(p.studentId));
+      const special = list.filter(p => specialIds.includes(p.studentId))
+                         .sort((a, b) => a.studentId.localeCompare(b.studentId));
+      return [...normal, ...special];
+    };
+
     const unsubscribe = onSnapshot(
       query(collection(db, 'batchmates'), orderBy('studentId', 'asc')), 
       (s) => {
-        setPeople(s.docs.map(d => ({ id: d.id, ...d.data() })) as Batchmate[]);
+        const rawData = s.docs.map(d => ({ id: d.id, ...d.data() })) as Batchmate[];
+        setPeople(reorderBatchmates(rawData));
         setLoading(false);
         setError(null);
       },

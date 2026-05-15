@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
+  Home,
   LayoutDashboard, 
   Users, 
   Image, 
@@ -23,6 +24,7 @@ import { signOut } from 'firebase/auth';
 import { format } from 'date-fns';
 
 const navItems = [
+  { path: '/', label: 'Home Page', icon: Home },
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/assessments', label: 'Assessments', icon: BookOpen },
   { path: '/people', label: 'People', icon: Users },

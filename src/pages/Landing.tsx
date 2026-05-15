@@ -56,21 +56,30 @@ export default function Landing() {
   const [batchmates, setBatchmates] = useState<any[]>([]);
 
   useEffect(() => {
+    const reorderBatchmates = (list: any[]) => {
+      const specialIds = ["221703", "221730", "221740"];
+      const normal = list.filter(p => !specialIds.includes(p.studentId));
+      const special = list.filter(p => specialIds.includes(p.studentId))
+                         .sort((a, b) => a.studentId.localeCompare(b.studentId));
+      return [...normal, ...special];
+    };
+
     const fetchBatchmates = async () => {
       try {
         const q = query(collection(db, 'batchmates'), orderBy('studentId', 'asc'), limit(26));
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
-          setBatchmates(snapshot.docs.map(doc => doc.data()));
+          const rawData = snapshot.docs.map(doc => doc.data());
+          setBatchmates(reorderBatchmates(rawData));
         } else {
-          setBatchmates(FALLBACK_BATCHMATES);
+          setBatchmates(reorderBatchmates(FALLBACK_BATCHMATES));
         }
       } catch (error: any) {
         // Silently fall back if permissions are missing (common for unauthenticated landing page visits)
         if (error?.code !== 'permission-denied') {
           console.error("Error fetching batchmates for landing:", error);
         }
-        setBatchmates(FALLBACK_BATCHMATES);
+        setBatchmates(reorderBatchmates(FALLBACK_BATCHMATES));
       }
     };
     fetchBatchmates();
