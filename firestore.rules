@@ -1,0 +1,116 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDocExists() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function currentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isApproved() {
+      return userDocExists()
+        && currentUser().data.status == 'approved';
+    }
+
+    function isAdmin() {
+      return userDocExists()
+        && currentUser().data.role == 'admin'
+        && currentUser().data.status == 'approved';
+    }
+
+    function isCR() {
+      return userDocExists()
+        && currentUser().data.status == 'approved'
+        && (
+          currentUser().data.role == 'cr'
+          || currentUser().data.role == 'admin'
+        );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+
+      allow create: if isOwner(userId)
+        && request.resource.data.role == 'student'
+        && request.resource.data.status in ['approved', 'pending', 'rejected'];
+
+      allow update: if isAdmin()
+        || (
+          isOwner(userId)
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.email == resource.data.email
+        );
+
+      allow delete: if isAdmin();
+
+      match /routines/{routineId} {
+        allow read, create, update, delete: if isOwner(userId) && isApproved();
+      }
+
+      match /tasks/{taskId} {
+        allow read, create, update, delete: if isOwner(userId) && isApproved();
+      }
+
+      match /notes/{noteId} {
+        allow read, create, update, delete: if isOwner(userId) && isApproved();
+      }
+
+      match /backupRecords/{recordId} {
+        allow read, create, update, delete: if isOwner(userId) && isApproved();
+      }
+    }
+
+    match /assessments/{assessmentId} {
+      allow read: if isSignedIn() && isApproved();
+      allow create, update, delete: if isCR();
+    }
+
+    match /globalCalendarEvents/{eventId} {
+      allow read: if isSignedIn() && isApproved();
+      allow create, update, delete: if isCR();
+    }
+
+    match /classFund/{fundId} {
+      allow read: if isSignedIn() && isApproved();
+      allow create, update, delete: if isCR();
+    }
+
+    match /batchmates/{studentId} {
+      allow read: if isSignedIn() && isApproved();
+      allow create, update, delete: if isCR();
+    }
+
+    match /album/{photoId} {
+      allow read: if isSignedIn() && isApproved();
+      allow create, update, delete: if isCR();
+    }
+
+    match /notices/{noticeId} {
+      allow read: if isSignedIn() && isApproved();
+      allow create, update, delete: if isCR();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "Batchmate": {
+      "title": "Batchmate",
+      "description": "Information about a student in the Physics 23 batch",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string", "description": "University Student ID / Roll Number" },
+        "name": { "type": "string", "description": "Full name of the student" },
+        "role": { "type": "string", "description": "Role in the batch (student or class representative)" },
+        "imageUrl": { "type": "string", "description": "URL to student's photo" },
+        "email": { "type": "string", "description": "Official or personal email" },
+        "phone": { "type": "string", "description": "Contact number" },
+        "bloodGroup": { "type": "string", "description": "Blood group for emergency directory" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["studentId", "name"]
+    }
+  },
+  "firestore": {
+    "/batchmates/{studentId}": {
+      "schema": "Batchmate",
+      "description": "Collection of all students in the batch"
+    }
+  }
+}
