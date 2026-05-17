@@ -27,24 +27,24 @@ const PhotoCard = React.memo(({ photo, idx, onClick, shouldReduceMotion, backdro
     animate={{ opacity: 1, scale: 1 }}
     transition={{ delay: shouldReduceMotion ? 0 : idx * 0.03 }}
     onClick={() => onClick(photo)}
-    className={`glass-card overflow-hidden group cursor-pointer relative break-inside-avoid ${backdropBlurClass}`}
+    className={`glass-card overflow-hidden group cursor-pointer relative aspect-square ${backdropBlurClass}`}
   >
     <img 
       src={photo.imageUrl} 
       loading="lazy"
+      decoding="async"
       referrerPolicy="no-referrer"
-      className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-500" 
+      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
       alt={photo.title} 
     />
-    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-6">
-       <h4 className="text-white font-bold text-lg mb-1">{photo.title}</h4>
-       <div className="flex items-center gap-4 text-[10px] text-gray-300 font-bold uppercase tracking-widest">
-         <span className="flex items-center gap-1.5"><Calendar size={12} className="text-purple-400" /> {photo.date}</span>
-         <span className="flex items-center gap-1.5"><User size={12} className="text-blue-400" /> {photo.uploadedBy}</span>
+    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-6">
+       <h4 className="text-white font-black text-sm mb-1 uppercase tracking-tight line-clamp-1">{photo.title}</h4>
+       <div className="flex items-center gap-3 text-[9px] text-gray-400 font-bold uppercase tracking-widest">
+         <span className="flex items-center gap-1"><Calendar size={10} className="text-purple-400" /> {photo.date}</span>
        </div>
     </div>
-    <div className="absolute top-4 right-4 p-2 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100">
-      <Maximize2 size={16} className="text-white" />
+    <div className="absolute top-3 right-3 p-1.5 rounded-lg bg-black/40 backdrop-blur-md border border-white/10 opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100">
+      <Maximize2 size={14} className="text-white" />
     </div>
   </motion.div>
 ));
@@ -60,8 +60,8 @@ export default function Album() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    // Limit to fetching 40 images initially for performance
-    const q = query(collection(db, 'album'), orderBy('createdAt', 'desc'), limit(40));
+    // Limit to fetching 48 images (divisible by grid columns)
+    const q = query(collection(db, 'album'), orderBy('createdAt', 'desc'), limit(48));
     const unsubscribe = onSnapshot(
       q, 
       (s) => {
@@ -92,18 +92,18 @@ export default function Album() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">Batch<span className="gradient-text">Album</span></h1>
-          <p className="text-gray-400">Capturing the unforgettable moments of Physics 23.</p>
+          <p className="text-gray-400">Capturing the unforgettable moments of Physics 23 ({photos.length} photos).</p>
         </div>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {[1,2,3,4,5,6,7,8].map(i => (
-            <Skeleton key={i} className="aspect-square w-full" />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          {[...Array(12)].map((_, i) => (
+            <Skeleton key={i} className="aspect-square w-full rounded-2xl" />
           ))}
         </div>
       ) : photos.length > 0 ? (
-        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           {photos.map((photo, idx) => (
             <PhotoCard 
               key={photo.id} 

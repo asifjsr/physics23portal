@@ -2,10 +2,11 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, onSnapshot, query, orderBy, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Search, User, Phone, Droplet, Hash, Mail, ChevronRight, UserCircle, Plus, Edit2, Trash2, X, MoreVertical, AlertTriangle } from 'lucide-react';
+import { Search, User, Phone, Droplet, Hash, Mail, ChevronRight, UserCircle, Plus, Edit2, Trash2, X, MoreVertical, AlertTriangle, Facebook, Linkedin, FileText, Users as UsersIcon, Globe } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Modal } from '@/components/Modal';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { ProfileModal } from '@/components/ProfileModal';
 import { handleFirestoreError, OperationType } from '@/lib/firestore-errors';
 import { getPermissions } from '@/lib/permissions';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -20,9 +21,14 @@ interface Batchmate {
   email: string;
   phone: string;
   bloodGroup: string;
+  facebook?: string;
+  linkedin?: string;
+  cv?: string;
+  clubs?: string;
+  bio?: string;
 }
 
-const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, shouldReduceMotion, backdropBlurClass }: any) => {
+const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, onClick, shouldReduceMotion, backdropBlurClass }: any) => {
   const getInitials = (name: string) => {
     return name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??';
   };
@@ -33,14 +39,21 @@ const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, sh
       initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: shouldReduceMotion ? 0 : idx * 0.05 }}
-      className={`glass p-6 flex flex-col items-center group relative overflow-hidden glass-hover border-white/5 ${backdropBlurClass}`}
+      onClick={() => onClick(person)}
+      className={`glass p-6 flex flex-col items-center group relative overflow-hidden glass-hover border-white/5 cursor-pointer ${backdropBlurClass}`}
     >
       {canManage && (
         <div className="absolute top-4 right-4 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={() => onEdit(person)} className="p-2 rounded-lg bg-white/5 text-blue-400 hover:bg-blue-400/20 transition-all">
+          <button 
+            onClick={(e) => { e.stopPropagation(); onEdit(person); }} 
+            className="p-2 rounded-lg bg-white/5 text-blue-400 hover:bg-blue-400/20 transition-all"
+          >
             <Edit2 size={14} />
           </button>
-          <button onClick={() => onDelete(person)} className="p-2 rounded-lg bg-white/5 text-red-400 hover:bg-red-400/20 transition-all">
+          <button 
+            onClick={(e) => { e.stopPropagation(); onDelete(person); }} 
+            className="p-2 rounded-lg bg-white/5 text-red-400 hover:bg-red-400/20 transition-all"
+          >
             <Trash2 size={14} />
           </button>
         </div>
@@ -57,6 +70,8 @@ const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, sh
               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
               alt={person.name} 
               referrerPolicy="no-referrer"
+              loading="lazy"
+              decoding="async"
             />
           ) : (
             <span className="text-3xl font-black text-white/10 group-hover:text-purple-400 transition-colors uppercase">
@@ -91,6 +106,11 @@ const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, sh
                <span className="truncate font-bold tracking-widest">{person.email}</span>
             </div>
           )}
+          <div className="pt-2">
+            <button className="text-[9px] font-black uppercase tracking-widest text-purple-400/60 group-hover:text-purple-400 transition-colors flex items-center gap-1.5 mx-auto">
+              View Profile <ChevronRight size={10} />
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>
@@ -109,7 +129,9 @@ export default function Batchmates() {
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Batchmate | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<Batchmate | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Batchmate>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -161,9 +183,19 @@ export default function Batchmates() {
       imageUrl: '',
       email: '',
       phone: '',
-      bloodGroup: ''
+      bloodGroup: '',
+      facebook: '',
+      linkedin: '',
+      cv: '',
+      clubs: '',
+      bio: ''
     });
     setIsModalOpen(true);
+  }, []);
+
+  const handleOpenProfile = useCallback((person: Batchmate) => {
+    setSelectedPerson(person);
+    setIsProfileModalOpen(true);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -270,6 +302,7 @@ export default function Batchmates() {
               canManage={canManage} 
               onEdit={handleOpenModal} 
               onDelete={confirmDelete}
+              onClick={handleOpenProfile}
               shouldReduceMotion={shouldReduceMotion}
               backdropBlurClass={backdropBlurClass}
             />
@@ -370,6 +403,57 @@ export default function Batchmates() {
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Facebook Profile</label>
+              <input 
+                value={formData.facebook || ''} 
+                onChange={e => setFormData({...formData, facebook: e.target.value})} 
+                className="glass-input w-full text-xs" 
+                placeholder="https://facebook.com/..." 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">LinkedIn Profile</label>
+              <input 
+                value={formData.linkedin || ''} 
+                onChange={e => setFormData({...formData, linkedin: e.target.value})} 
+                className="glass-input w-full text-xs" 
+                placeholder="https://linkedin.com/in/..." 
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">CV Link</label>
+            <input 
+              value={formData.cv || ''} 
+              onChange={e => setFormData({...formData, cv: e.target.value})} 
+              className="glass-input w-full text-xs" 
+              placeholder="Drive / Dropbox link" 
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Clubs & Memberships</label>
+            <input 
+              value={formData.clubs || ''} 
+              onChange={e => setFormData({...formData, clubs: e.target.value})} 
+              className="glass-input w-full text-xs" 
+              placeholder="Physics Club, Robotics..." 
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">Bio / Mini Details</label>
+            <textarea 
+              value={formData.bio || ''} 
+              onChange={e => setFormData({...formData, bio: e.target.value})} 
+              className="glass-input w-full text-xs min-h-[80px] p-4" 
+              placeholder="Tell something about yourself..." 
+            />
+          </div>
+
           <div className="flex gap-3 pt-6">
             <button 
               type="button" 
@@ -399,6 +483,14 @@ export default function Batchmates() {
         itemName={editingItem?.name}
         message="This will permanently remove the student from the Physics 23 directory. This action cannot be undone."
         isLoading={isSubmitting}
+      />
+
+      {/* Profile Detail Modal */}
+      <ProfileModal 
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        person={selectedPerson}
+        backdropBlurClass={backdropBlurClass}
       />
     </div>
   );

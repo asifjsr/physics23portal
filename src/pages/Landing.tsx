@@ -51,9 +51,51 @@ const FALLBACK_BATCHMATES = [
   { studentId: "221740", name: "Md. Tariqul Islam", role: "student", imageUrl: "https://lh3.googleusercontent.com/d/1bC1Evm71isLy0OFW5e3s-rQhkfxdRYJw" }
 ];
 
+import { usePerformance } from '@/hooks/usePerformance';
+import { ProfileModal } from '@/components/ProfileModal';
+
+const BatchmateMiniCard = React.memo(({ person, idx, onClick, shouldReduceMotion }: any) => {
+  const getInitials = (name: string) => {
+    return name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??';
+  };
+  
+  return (
+    <motion.div
+      initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: shouldReduceMotion ? 0 : (idx % 6) * 0.05 }}
+      onClick={() => onClick(person)}
+      className="glass p-4 text-center group glass-hover cursor-pointer"
+    >
+      <div className="w-16 h-16 rounded-2xl mx-auto mb-4 overflow-hidden bg-white/5 border border-white/10 group-hover:border-purple-500/30 transition-all flex items-center justify-center">
+        {person.imageUrl ? (
+          <img 
+            src={person.imageUrl} 
+            className="w-full h-full object-cover" 
+            alt={person.name} 
+            referrerPolicy="no-referrer"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <span className="text-lg font-bold text-white/20 group-hover:text-purple-400 transition-colors uppercase">
+            {getInitials(person.name)}
+          </span>
+        )}
+      </div>
+      <h3 className="text-[11px] font-bold text-white uppercase tracking-tight truncate px-2">{person.name}</h3>
+      <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest mt-1">ID: {person.studentId}</p>
+    </motion.div>
+  );
+});
+
 export default function Landing() {
   const { user } = useAuth();
+  const { shouldReduceMotion, isMobile, backdropBlurClass } = usePerformance();
   const [batchmates, setBatchmates] = useState<any[]>([]);
+  const [selectedPerson, setSelectedPerson] = useState<any>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   useEffect(() => {
     const reorderBatchmates = (list: any[]) => {
@@ -105,7 +147,7 @@ export default function Landing() {
       
       {/* Navbar */}
       <header className="fixed top-4 left-4 right-4 z-50">
-        <div className="max-w-7xl mx-auto glass h-16 flex items-center justify-between px-6 bg-white/[0.02]">
+        <div className={`max-w-7xl mx-auto glass h-16 flex items-center justify-between px-6 bg-white/[0.02] ${backdropBlurClass}`}>
           <div className="flex items-center gap-3">
             <Atom className="text-purple-400" size={24} />
             <span className="text-lg font-extrabold text-white tracking-tight uppercase">Physics 23</span>
@@ -167,7 +209,7 @@ export default function Landing() {
               transition={{ delay: 0.3 }}
               className="flex flex-col sm:flex-row items-center justify-center gap-4"
             >
-              <Link to="/login" className="btn-primary w-full sm:w-auto h-14 flex items-center justify-center text-lg px-12 group uppercase tracking-widest text-sm">
+              <Link to={user ? "/dashboard" : "/login"} className="btn-primary w-full sm:w-auto h-14 flex items-center justify-center text-lg px-12 group uppercase tracking-widest text-sm">
                 Join the Portal <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link to="/people" className="btn-secondary w-full sm:w-auto h-14 flex items-center justify-center text-lg px-12 uppercase tracking-widest text-sm">
@@ -185,6 +227,8 @@ export default function Landing() {
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" 
                   alt="Physics 23 Group"
                   referrerPolicy="no-referrer"
+                  loading="lazy"
+                  decoding="async"
                 />
               ) : (
                 <div className="w-full h-full accent-gradient opacity-20 flex items-center justify-center" />
@@ -227,31 +271,16 @@ export default function Landing() {
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
               {batchmates.map((person, idx) => (
-                <motion.div
-                  key={person.studentId}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: (idx % 6) * 0.05 }}
-                  className="glass p-4 text-center group glass-hover"
-                >
-                  <div className="w-16 h-16 rounded-2xl mx-auto mb-4 overflow-hidden bg-white/5 border border-white/10 group-hover:border-purple-500/30 transition-all flex items-center justify-center">
-                    {person.imageUrl ? (
-                      <img 
-                        src={person.imageUrl} 
-                        className="w-full h-full object-cover" 
-                        alt={person.name} 
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <span className="text-lg font-bold text-white/20 group-hover:text-purple-400 transition-colors uppercase">
-                        {getInitials(person.name)}
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-[11px] font-bold text-white uppercase tracking-tight truncate px-2">{person.name}</h3>
-                  <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest mt-1">ID: {person.studentId}</p>
-                </motion.div>
+                <BatchmateMiniCard 
+                  key={person.studentId} 
+                  person={person} 
+                  idx={idx} 
+                  shouldReduceMotion={shouldReduceMotion} 
+                  onClick={(p: any) => {
+                    setSelectedPerson(p);
+                    setIsProfileModalOpen(true);
+                  }}
+                />
               ))}
             </div>
           </section>
@@ -291,6 +320,13 @@ export default function Landing() {
           </section>
         </div>
       </main>
+
+      <ProfileModal 
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        person={selectedPerson}
+        backdropBlurClass={backdropBlurClass}
+      />
 
       {/* Footer */}
       <footer className="py-12 border-t border-white/5 mx-4">

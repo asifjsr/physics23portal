@@ -7,6 +7,7 @@ import {
   onSnapshot, 
   orderBy, 
   Timestamp,
+  limit,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
@@ -210,7 +211,7 @@ export default function Dashboard() {
       errorHandler('assessments')
     );
 
-    const unsubNotices = onSnapshot(query(collection(db, 'notices'), orderBy('createdAt', 'desc')), 
+    const unsubNotices = onSnapshot(query(collection(db, 'notices'), orderBy('createdAt', 'desc'), limit(1)), 
       (s) => {
         setNotices(s.docs.map(d => ({ id: d.id, ...d.data() })));
       },
