@@ -316,6 +316,11 @@ export default function Dashboard() {
     }
   };
 
+  const fundGoalPercentage = useMemo(() => {
+    if (!settings?.fundGoalAmount || settings.fundGoalAmount <= 0) return 0;
+    return Math.min(100, Math.round((fundBalance / settings.fundGoalAmount) * 100));
+  }, [fundBalance, settings?.fundGoalAmount]);
+
   if (loading) return <DashboardSkeleton />;
 
   return (
@@ -327,7 +332,7 @@ export default function Dashboard() {
               Batch Fund Balance
               {settings?.fundGoalAmount && (
                 <span className="text-[9px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20">
-                  Target: {Math.min(100, Math.round((fundBalance / settings.fundGoalAmount) * 100))}%
+                  Target: {fundGoalPercentage}%
                 </span>
               )}
             </div>

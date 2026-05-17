@@ -697,7 +697,7 @@ export default function AdminPanel() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Amount</label>
-                  <input type="number" required value={formData.amount ?? ''} onChange={e => setFormData({...formData, amount: e.target.value === '' ? 0 : parseFloat(e.target.value)})} className="glass-input w-full" />
+                  <input type="number" required value={formData.amount === undefined || formData.amount === null || isNaN(formData.amount) ? '' : formData.amount} onChange={e => setFormData({...formData, amount: e.target.value === '' ? 0 : parseFloat(e.target.value)})} className="glass-input w-full" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Type</label>
