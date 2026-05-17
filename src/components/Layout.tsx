@@ -97,7 +97,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <header className="flex items-center justify-between p-6 pb-0">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">
-              Hello, {profile?.roll || 'Batchmate'}
+              Hello, {profile?.name || 'Batchmate'}
             </h1>
             <p className="text-sm text-white/50 mt-1">
               {format(new Date(), 'EEEE, MMMM dd, yyyy')}
