@@ -29,26 +29,26 @@ const FALLBACK_BATCHMATES = [
   { studentId: "231708", name: "MST. FARJANA MAHIN", role: "student", imageUrl: "" },
   { studentId: "231709", name: "MD. SAIFUL ISLAM MANIK", role: "student", imageUrl: "" },
   { studentId: "231710", name: "SEJANUR RAHMAN SEJAN", role: "student", imageUrl: "" },
-  { studentId: "231711", name: "MST. TANIMA JANNAT HASHI", role: "student", imageUrl: "" },
+  { studentId: "231711", name: "MST. TANIMA JANNAT HASHI", role: "student", imageUrl: "https://lh3.googleusercontent.com/d/1eTKRyPLgDdi8wUROlzg9da_dPPJzNUpF" },
   { studentId: "231713", name: "MD. SHAKIB", role: "class representative", imageUrl: "" },
   { studentId: "231715", name: "JANNATULL SABDID", role: "student", imageUrl: "" },
   { studentId: "231718", name: "FARDIN AL ZAWAD FAHIM", role: "student", imageUrl: "" },
-  { studentId: "231719", name: "MD. ASIF KHAN", role: "student", imageUrl: "" },
-  { studentId: "231720", name: "MONOARUL ISLAM FAHIM", role: "student", imageUrl: "" },
+  { studentId: "231719", name: "MD. ASIF KHAN", role: "student", imageUrl: "https://lh3.googleusercontent.com/d/1oAgNKQhVWd7QyytSphvZ0aBpR7qSunoG" },
+  { studentId: "231720", name: "MONOARUL ISLAM FAHIM", role: "student", imageUrl: "https://lh3.googleusercontent.com/d/1y-RA22HaYoqtf9h7tkM7MBEnp5CRPM0Q" },
   { studentId: "231722", name: "MAHIR MAHDI", role: "student", imageUrl: "" },
   { studentId: "231723", name: "AFIA ANISA", role: "student", imageUrl: "" },
-  { studentId: "231729", name: "MST.MODINA KHATUN", role: "student", imageUrl: "" },
+  { studentId: "231729", name: "MST.MODINA KHATUN", role: "student", imageUrl: "https://lh3.googleusercontent.com/d/1SooeRpHZjTN_LksCi7UK4qgfTsyrxCck" },
   { studentId: "231730", name: "MAHATHIR MOHAMMAD", role: "student", imageUrl: "" },
   { studentId: "231734", name: "TAHSIN AHMED MAHIM", role: "student", imageUrl: "" },
   { studentId: "231735", name: "SOHAN SARDER", role: "student", imageUrl: "" },
   { studentId: "231736", name: "JEET DAY", role: "student", imageUrl: "" },
-  { studentId: "231737", name: "PROMA DAS RUPA", role: "student", imageUrl: "" },
+  { studentId: "231737", name: "PROMA DAS RUPA", role: "student", imageUrl: "https://lh3.googleusercontent.com/d/1wqt5oGrzCoULtEjQRH_4t53_zQqVJup0" },
   { studentId: "231739", name: "FAHAD BIN SHARAFAT", role: "student", imageUrl: "" },
   { studentId: "231740", name: "SANCHITA MONDAL", role: "student", imageUrl: "" },
   { studentId: "231741", name: "MAFUJUR RAHMAN", role: "student", imageUrl: "" },
   { studentId: "231742", name: "EZAZ MAHMUD", role: "student", imageUrl: "" },
   { studentId: "221703", name: "CHANDAN BALA", role: "student", imageUrl: "" },
-  { studentId: "221740", name: "Md. Tariqul Islam", role: "student", imageUrl: "" }
+  { studentId: "221740", name: "Md. Tariqul Islam", role: "student", imageUrl: "https://lh3.googleusercontent.com/d/1bC1Evm71isLy0OFW5e3s-rQhkfxdRYJw" }
 ];
 
 export default function Landing() {
@@ -68,12 +68,22 @@ export default function Landing() {
       try {
         const q = query(collection(db, 'batchmates'), orderBy('studentId', 'asc'), limit(26));
         const snapshot = await getDocs(q);
+        let finalData: any[] = [];
+        
         if (!snapshot.empty) {
-          const rawData = snapshot.docs.map(doc => doc.data());
-          setBatchmates(reorderBatchmates(rawData));
+          const dbData = snapshot.docs.map(doc => doc.data());
+          // Merge images from fallback if missing in DB
+          finalData = dbData.map(p => {
+            const fallback = FALLBACK_BATCHMATES.find(f => f.studentId === p.studentId);
+            return {
+              ...p,
+              imageUrl: p.imageUrl || fallback?.imageUrl || ''
+            };
+          });
         } else {
-          setBatchmates(reorderBatchmates(FALLBACK_BATCHMATES));
+          finalData = FALLBACK_BATCHMATES;
         }
+        setBatchmates(reorderBatchmates(finalData));
       } catch (error: any) {
         // Silently fall back if permissions are missing (common for unauthenticated landing page visits)
         if (error?.code !== 'permission-denied') {
@@ -174,6 +184,7 @@ export default function Landing() {
                   src={GROUP_PHOTO_URL} 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" 
                   alt="Physics 23 Group"
+                  referrerPolicy="no-referrer"
                 />
               ) : (
                 <div className="w-full h-full accent-gradient opacity-20 flex items-center justify-center" />
@@ -226,7 +237,12 @@ export default function Landing() {
                 >
                   <div className="w-16 h-16 rounded-2xl mx-auto mb-4 overflow-hidden bg-white/5 border border-white/10 group-hover:border-purple-500/30 transition-all flex items-center justify-center">
                     {person.imageUrl ? (
-                      <img src={person.imageUrl} className="w-full h-full object-cover" alt={person.name} />
+                      <img 
+                        src={person.imageUrl} 
+                        className="w-full h-full object-cover" 
+                        alt={person.name} 
+                        referrerPolicy="no-referrer"
+                      />
                     ) : (
                       <span className="text-lg font-bold text-white/20 group-hover:text-purple-400 transition-colors uppercase">
                         {getInitials(person.name)}
