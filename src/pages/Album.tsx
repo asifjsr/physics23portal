@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Image, ExternalLink, Calendar, User, Maximize2, X, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -8,6 +8,8 @@ import { getPermissions } from '@/lib/permissions';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/lib/firestore-errors';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { usePerformance } from '@/hooks/usePerformance';
 
 interface Photo {
   id: string;
@@ -19,9 +21,38 @@ interface Photo {
   uploadedBy: string;
 }
 
+const PhotoCard = React.memo(({ photo, idx, onClick, shouldReduceMotion, backdropBlurClass }: any) => (
+  <motion.div
+    initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.9 }}
+    animate={{ opacity: 1, scale: 1 }}
+    transition={{ delay: shouldReduceMotion ? 0 : idx * 0.03 }}
+    onClick={() => onClick(photo)}
+    className={`glass-card overflow-hidden group cursor-pointer relative break-inside-avoid ${backdropBlurClass}`}
+  >
+    <img 
+      src={photo.imageUrl} 
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-500" 
+      alt={photo.title} 
+    />
+    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-6">
+       <h4 className="text-white font-bold text-lg mb-1">{photo.title}</h4>
+       <div className="flex items-center gap-4 text-[10px] text-gray-300 font-bold uppercase tracking-widest">
+         <span className="flex items-center gap-1.5"><Calendar size={12} className="text-purple-400" /> {photo.date}</span>
+         <span className="flex items-center gap-1.5"><User size={12} className="text-blue-400" /> {photo.uploadedBy}</span>
+       </div>
+    </div>
+    <div className="absolute top-4 right-4 p-2 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100">
+      <Maximize2 size={16} className="text-white" />
+    </div>
+  </motion.div>
+));
+
 export default function Album() {
   const { profile } = useAuth();
   const { canManageShared } = getPermissions(profile);
+  const { shouldReduceMotion, backdropBlurClass } = usePerformance();
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
@@ -29,7 +60,8 @@ export default function Album() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, 'album'), orderBy('createdAt', 'desc'));
+    // Limit to fetching 40 images initially for performance
+    const q = query(collection(db, 'album'), orderBy('createdAt', 'desc'), limit(40));
     const unsubscribe = onSnapshot(
       q, 
       (s) => {
@@ -51,6 +83,10 @@ export default function Album() {
     return () => unsubscribe();
   }, [profile]);
 
+  const handlePhotoClick = useCallback((photo: Photo) => {
+    setSelectedPhoto(photo);
+  }, []);
+
   return (
     <div className="space-y-8 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -63,37 +99,20 @@ export default function Album() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {[1,2,3,4,5,6,7,8].map(i => (
-            <div key={i} className="glass-card aspect-square animate-pulse bg-white/5 opacity-50"></div>
+            <Skeleton key={i} className="aspect-square w-full" />
           ))}
         </div>
       ) : photos.length > 0 ? (
         <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
           {photos.map((photo, idx) => (
-            <motion.div
-              key={photo.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: idx * 0.05 }}
-              onClick={() => setSelectedPhoto(photo)}
-              className="glass-card overflow-hidden group cursor-pointer relative break-inside-avoid"
-            >
-              <img 
-                src={photo.imageUrl} 
-                loading="lazy"
-                className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-500" 
-                alt={photo.title} 
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-6">
-                 <h4 className="text-white font-bold text-lg mb-1">{photo.title}</h4>
-                 <div className="flex items-center gap-4 text-[10px] text-gray-300 font-bold uppercase tracking-widest">
-                   <span className="flex items-center gap-1.5"><Calendar size={12} className="text-purple-400" /> {photo.date}</span>
-                   <span className="flex items-center gap-1.5"><User size={12} className="text-blue-400" /> {photo.uploadedBy}</span>
-                 </div>
-              </div>
-              <div className="absolute top-4 right-4 p-2 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100">
-                <Maximize2 size={16} className="text-white" />
-              </div>
-            </motion.div>
+            <PhotoCard 
+              key={photo.id} 
+              photo={photo} 
+              idx={idx} 
+              onClick={handlePhotoClick}
+              shouldReduceMotion={shouldReduceMotion}
+              backdropBlurClass={backdropBlurClass}
+            />
           ))}
         </div>
       ) : (

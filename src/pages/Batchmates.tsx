@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, onSnapshot, query, orderBy, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -8,6 +8,8 @@ import { Modal } from '@/components/Modal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { handleFirestoreError, OperationType } from '@/lib/firestore-errors';
 import { getPermissions } from '@/lib/permissions';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { usePerformance } from '@/hooks/usePerformance';
 
 interface Batchmate {
   id: string;
@@ -23,6 +25,7 @@ interface Batchmate {
 export default function Batchmates() {
   const { profile } = useAuth();
   const { canManageShared: canManage } = getPermissions(profile);
+  const { shouldReduceMotion, backdropBlurClass } = usePerformance();
   const [people, setPeople] = useState<Batchmate[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -69,12 +72,12 @@ export default function Batchmates() {
     return () => unsubscribe();
   }, [profile]);
 
-  const filtered = people.filter(p => 
+  const filtered = useMemo(() => people.filter(p => 
     p.name?.toLowerCase().includes(search.toLowerCase()) || 
     p.studentId?.includes(search)
-  );
+  ), [people, search]);
 
-  const handleOpenModal = (item: Batchmate | null = null) => {
+  const handleOpenModal = useCallback((item: Batchmate | null = null) => {
     setEditingItem(item);
     setFormData(item || {
       studentId: '',
@@ -86,7 +89,7 @@ export default function Batchmates() {
       bloodGroup: ''
     });
     setIsModalOpen(true);
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,11 +119,11 @@ export default function Batchmates() {
     }
   };
 
-  const confirmDelete = (person: Batchmate) => {
+  const confirmDelete = useCallback((person: Batchmate) => {
     setEditingItem(person);
     setDeleteTarget(person.id);
     setIsDeleteModalOpen(true);
-  };
+  }, []);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -179,73 +182,22 @@ export default function Batchmates() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[1,2,3,4,5,6,7,8].map(i => (
-            <div key={i} className="glass h-80 animate-pulse bg-white/5"></div>
+            <Skeleton key={i} className="h-80 w-full" />
           ))}
         </div>
       ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filtered.map((person, idx) => (
-            <motion.div
-              key={person.id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: idx * 0.05 }}
-              className="glass p-6 flex flex-col items-center group relative overflow-hidden glass-hover border-white/5"
-            >
-              {canManage && (
-                <div className="absolute top-4 right-4 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => handleOpenModal(person)} className="p-2 rounded-lg bg-white/5 text-blue-400 hover:bg-blue-400/20 transition-all">
-                    <Edit2 size={14} />
-                  </button>
-                  <button onClick={() => confirmDelete(person)} className="p-2 rounded-lg bg-white/5 text-red-400 hover:bg-red-400/20 transition-all">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              )}
-
-              {/* Card Decoration */}
-              <div className="absolute -top-10 -right-10 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl transition-all group-hover:bg-purple-500/10"></div>
-              
-              <div className="relative mb-6">
-                <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-white/5 group-hover:ring-purple-500/20 transition-all shadow-xl flex items-center justify-center bg-white/5">
-                  {person.imageUrl ? (
-                    <img src={person.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={person.name} />
-                  ) : (
-                    <span className="text-3xl font-black text-white/10 group-hover:text-purple-400 transition-colors uppercase">
-                      {getInitials(person.name)}
-                    </span>
-                  )}
-                </div>
-                <div className="absolute -bottom-2 -right-2 px-3 py-1 accent-gradient text-white rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg">
-                  {person.role || 'STUDENT'}
-                </div>
-              </div>
-
-              <div className="text-center w-full min-w-0">
-                <h3 className="text-base font-bold text-white truncate group-hover:text-purple-400 transition-colors uppercase tracking-tight">{person.name}</h3>
-                <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.2em] mt-1 mb-6">Roll: {person.studentId}</p>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] text-white/40 group-hover:bg-white/[0.05] transition-colors">
-                    <Droplet size={14} className="text-red-500 opacity-60" />
-                    <span className="font-bold uppercase tracking-widest">Blood:</span>
-                    <span className="text-white font-bold ml-auto">{person.bloodGroup || 'N/A'}</span>
-                  </div>
-                  {person.phone && (
-                    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] text-white/40 group-hover:bg-white/[0.05] transition-colors">
-                      <Phone size={14} className="text-green-500 opacity-60" />
-                      <span className="truncate font-bold tracking-widest">{person.phone}</span>
-                    </div>
-                  )}
-                  {person.email && (
-                    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] text-white/40 group-hover:bg-white/[0.05] transition-colors">
-                       <Mail size={14} className="text-blue-500 opacity-60" />
-                       <span className="truncate font-bold tracking-widest">{person.email}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
+            <BatchmateCard 
+              key={person.id} 
+              person={person} 
+              idx={idx} 
+              canManage={canManage} 
+              onEdit={handleOpenModal} 
+              onDelete={confirmDelete}
+              shouldReduceMotion={shouldReduceMotion}
+              backdropBlurClass={backdropBlurClass}
+            />
           ))}
         </div>
       ) : (

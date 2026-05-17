@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   collection, 
@@ -42,10 +42,56 @@ import { handleFirestoreError, OperationType } from '@/lib/firestore-errors';
 import { getPermissions } from '@/lib/permissions';
 import { getLocalDateString } from '@/lib/date';
 import { normalizeEventType } from '@/lib/eventTypes';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { usePerformance } from '@/hooks/usePerformance';
+
+const TabButton = React.memo(({ tab, activeTab, onClick }: any) => (
+  <button
+    onClick={() => onClick(tab.id)}
+    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
+      activeTab === tab.id ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20' : 'text-gray-500 hover:text-white hover:bg-white/5'
+    }`}
+  >
+    <tab.icon size={18} /> {tab.label}
+  </button>
+));
+
+const AdminItemCard = React.memo(({ item, activeTab, onEdit, onDelete, backdropBlurClass }: any) => (
+  <div className={`glass-card p-4 flex flex-col group ${backdropBlurClass}`}>
+    <div className="flex items-start justify-between mb-4">
+      <div className="min-w-0">
+        <h4 className="font-bold text-white truncate text-sm">{item.title || item.name || item.subject || 'Untitled'}</h4>
+        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">
+          {item.date || item.studentId || item.type || 'No Date'}
+        </p>
+      </div>
+      <div className="flex gap-1">
+        <button onClick={() => onEdit(activeTab, item)} className="p-2 rounded-lg bg-white/5 text-blue-400 hover:bg-blue-500/10 transition-all opacity-0 group-hover:opacity-100">
+          <Edit size={14} />
+        </button>
+        <button onClick={() => onDelete(item)} className="p-2 rounded-lg bg-white/5 text-red-400 hover:bg-red-400/20 transition-all opacity-0 group-hover:opacity-100">
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+    {activeTab === 'fund' && (
+      <p className={`text-lg font-extrabold ${item.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
+        {item.type === 'income' ? '+' : '-'}৳{item.amount?.toLocaleString()}
+      </p>
+    )}
+    {activeTab === 'album' && item.imageUrl && (
+      <img src={item.imageUrl} className="w-full h-32 object-cover rounded-xl mt-2" alt="" loading="lazy" referrerPolicy="no-referrer" />
+    )}
+    {activeTab === 'notices' && (
+      <p className="text-xs text-gray-400 line-clamp-3 italic">"{item.content}"</p>
+    )}
+  </div>
+));
 
 export default function AdminPanel() {
   const { profile, settings } = useAuth();
   const { isAdmin, isCR, canManageUsers, canManageShared } = getPermissions(profile);
+  const { shouldReduceMotion, backdropBlurClass } = usePerformance();
   const [activeTab, setActiveTab] = useState<'users' | 'events' | 'people' | 'fund' | 'album' | 'notices' | 'assessments'>('users');
   const [users, setUsers] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
@@ -124,7 +170,7 @@ export default function AdminPanel() {
     await updateDoc(doc(db, 'settings', 'app'), { loginApprovalRequired: !settings?.loginApprovalRequired });
   };
 
-  const handleOpenModal = (tab: any, item: any = null) => {
+  const handleOpenModal = useCallback((tab: any, item: any = null) => {
     setEditingItem(item);
     if (item) {
       setFormData(item);
@@ -146,7 +192,7 @@ export default function AdminPanel() {
       setFormData(defaults);
     }
     setIsModalOpen(true);
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,10 +229,10 @@ export default function AdminPanel() {
     }
   };
 
-  const confirmDelete = (item: any) => {
+  const confirmDelete = useCallback((item: any) => {
     setDeleteTarget(item);
     setIsDeleteModalOpen(true);
-  };
+  }, []);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -321,7 +367,7 @@ export default function AdminPanel() {
       </div>
 
       {/* Tabs */}
-      <div className="flex overflow-x-auto gap-2 p-1 bg-white/5 border border-white/10 rounded-2xl sticky top-4 z-20 backdrop-blur-xl scrollbar-hide">
+      <div className={`flex overflow-x-auto gap-2 p-1 bg-white/5 border border-white/10 rounded-2xl sticky top-4 z-20 ${backdropBlurClass} scrollbar-hide`}>
         {[
           { id: 'users', label: 'Users', icon: Users, permission: isAdmin },
           { id: 'notices', label: 'Notices', icon: Info, permission: canManageShared },
@@ -331,15 +377,7 @@ export default function AdminPanel() {
           { id: 'fund', label: 'Fund', icon: DollarSign, permission: canManageShared },
           { id: 'album', label: 'Album', icon: Camera, permission: canManageShared }
         ].filter(t => t.permission).map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
-              activeTab === tab.id ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20' : 'text-gray-500 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <tab.icon size={18} /> {tab.label}
-          </button>
+          <TabButton key={tab.id} tab={tab} activeTab={activeTab} onClick={setActiveTab} />
         ))}
       </div>
 
@@ -474,35 +512,14 @@ export default function AdminPanel() {
                 activeTab === 'notices' ? notices :
                 photos
               ).map((item: any) => (
-                <div key={item.id} className="glass-card p-4 flex flex-col group">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-white truncate text-sm">{item.title || item.name || item.subject || 'Untitled'}</h4>
-                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">
-                        {item.date || item.studentId || item.type || 'No Date'}
-                      </p>
-                    </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => handleOpenModal(activeTab, item)} className="p-2 rounded-lg bg-white/5 text-blue-400 hover:bg-blue-500/10 transition-all opacity-0 group-hover:opacity-100">
-                        <Edit size={14} />
-                      </button>
-                      <button onClick={() => confirmDelete(item)} className="p-2 rounded-lg bg-white/5 text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  {activeTab === 'fund' && (
-                    <p className={`text-lg font-extrabold ${item.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
-                      {item.type === 'income' ? '+' : '-'}৳{item.amount?.toLocaleString()}
-                    </p>
-                  )}
-                  {activeTab === 'album' && item.imageUrl && (
-                    <img src={item.imageUrl} className="w-full h-32 object-cover rounded-xl mt-2" alt="" />
-                  )}
-                  {activeTab === 'notices' && (
-                    <p className="text-xs text-gray-400 line-clamp-3 italic">"{item.content}"</p>
-                  )}
-                </div>
+                <AdminItemCard 
+                  key={item.id} 
+                  item={item} 
+                  activeTab={activeTab} 
+                  onEdit={handleOpenModal} 
+                  onDelete={confirmDelete}
+                  backdropBlurClass={backdropBlurClass}
+                />
               ))}
             </div>
             {(

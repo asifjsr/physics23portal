@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -17,6 +17,7 @@ import {
   Info
 } from 'lucide-react';
 import { getLocalDateString, parseRelativeDate, getWeekdayName } from '@/lib/date';
+import { usePerformance } from '@/hooks/usePerformance';
 
 interface Message {
   id: string;
@@ -27,8 +28,45 @@ interface Message {
   status?: 'success' | 'fail' | 'info';
 }
 
+const MessageItem = React.memo(({ msg, shouldReduceMotion }: any) => (
+  <motion.div
+    initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 10, scale: 0.95 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+  >
+    <div className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center ${
+      msg.role === 'bot' 
+        ? 'bg-purple-600/10 border border-purple-500/20 text-purple-400' 
+        : 'bg-blue-600/10 border border-blue-500/20 text-blue-400'
+    }`}>
+      {msg.role === 'bot' ? <Bot size={20} /> : <User size={20} />}
+    </div>
+
+    <div className={`max-w-[80%] space-y-2 ${msg.role === 'user' ? 'text-right' : ''}`}>
+      <div className={`p-4 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+        msg.role === 'bot' 
+          ? 'bg-white/5 border border-white/5 text-gray-200' 
+          : 'bg-gradient-to-br from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/10'
+      }`}>
+        {msg.text}
+      </div>
+      {msg.status && (
+        <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${
+          msg.status === 'success' ? 'text-green-500' :
+          msg.status === 'fail' ? 'text-red-500' : 'text-blue-400'
+        }`}>
+          {msg.status === 'success' ? <CheckCircle size={10} /> : 
+           msg.status === 'fail' ? <AlertCircle size={10} /> : <Info size={10} />}
+          {msg.status}
+        </div>
+      )}
+    </div>
+  </motion.div>
+));
+
 export default function AIChatbot() {
   const { user, profile } = useAuth();
+  const { shouldReduceMotion, backdropBlurClass } = usePerformance();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -169,40 +207,7 @@ export default function AIChatbot() {
         <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
           <AnimatePresence initial={false}>
             {messages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
-              >
-                <div className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center ${
-                  msg.role === 'bot' 
-                    ? 'bg-purple-600/10 border border-purple-500/20 text-purple-400' 
-                    : 'bg-blue-600/10 border border-blue-500/20 text-blue-400'
-                }`}>
-                  {msg.role === 'bot' ? <Bot size={20} /> : <User size={20} />}
-                </div>
-
-                <div className={`max-w-[80%] space-y-2 ${msg.role === 'user' ? 'text-right' : ''}`}>
-                  <div className={`p-4 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                    msg.role === 'bot' 
-                      ? 'bg-white/5 border border-white/5 text-gray-200' 
-                      : 'bg-gradient-to-br from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/10'
-                  }`}>
-                    {msg.text}
-                  </div>
-                  {msg.status && (
-                    <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${
-                      msg.status === 'success' ? 'text-green-500' :
-                      msg.status === 'fail' ? 'text-red-500' : 'text-blue-400'
-                    }`}>
-                      {msg.status === 'success' ? <CheckCircle size={10} /> : 
-                       msg.status === 'fail' ? <AlertCircle size={10} /> : <Info size={10} />}
-                      {msg.status}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
+              <MessageItem key={msg.id} msg={msg} shouldReduceMotion={shouldReduceMotion} />
             ))}
           </AnimatePresence>
           {loading && (

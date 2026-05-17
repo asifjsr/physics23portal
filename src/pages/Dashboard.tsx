@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   collection, 
   query, 
@@ -24,7 +24,10 @@ import {
   User as UserIcon,
   Search,
   Sparkles,
-  Send
+  Send,
+  Edit2, 
+  Trash2,
+  Check
 } from 'lucide-react';
 import { Modal } from '@/components/Modal';
 import { 
@@ -46,9 +49,10 @@ import { getPermissions } from '@/lib/permissions';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/lib/firestore-errors';
 import { ConfirmModal } from '@/components/ConfirmModal';
-import { Edit2, Trash2 } from 'lucide-react';
 import { getLocalDateString, formatReadableDate } from '@/lib/date';
 import { parseLocalDateTime, getCountdownText, isUpcomingDateTime } from '@/lib/countdown';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
+import { usePerformance } from '@/hooks/usePerformance';
 
 interface CalendarEvent {
   id: string;
@@ -86,9 +90,70 @@ interface Assessment {
   updatedAt: any;
 }
 
+// Memoized List Items
+const ClassCard = React.memo(({ item, date, todayStr, onClick }: any) => (
+  <div 
+    onClick={() => onClick(item)}
+    className="flex items-center justify-between p-4 bg-white/[0.03] rounded-xl border border-white/5 hover:border-white/10 transition-all cursor-pointer group"
+  >
+    <div className="flex gap-4">
+      <div className={`w-1 rounded-full ${date === todayStr ? 'accent-gradient' : 'bg-white/10'}`} />
+      <div>
+        <div className="font-bold text-white group-hover:text-purple-300 transition-colors uppercase tracking-tight">
+          {item.subject || item.title}
+        </div>
+        <div className="text-[12px] text-white/50 mt-0.5">
+          {item.room || 'TBA'} • {item.teacher || 'TBA'}
+        </div>
+      </div>
+    </div>
+    <div className="text-right">
+      <div className="font-black text-sm text-white">{item.time}</div>
+      {item.note && <div className="text-[9px] text-purple-400/60 font-bold uppercase truncate max-w-[80px]">{item.note}</div>}
+    </div>
+  </div>
+));
+
+const CTCard = React.memo(({ ct, onClick }: any) => {
+  const targetDate = parseLocalDateTime(ct.date, ct.time);
+  const countdown = getCountdownText(targetDate);
+  
+  return (
+    <div 
+      onClick={() => onClick(ct)}
+      className="glass bg-white/[0.02] p-5 rounded-2xl border-white/5 hover:border-red-500/30 transition-all cursor-pointer group relative overflow-hidden"
+    >
+      <div className="absolute top-0 right-0 p-3">
+        <AlertCircle size={16} className="text-red-500/40 group-hover:text-red-500 transition-colors" />
+      </div>
+      <h4 className="text-sm font-black text-white/60 mb-1 uppercase tracking-widest">{ct.subject}</h4>
+      <h3 className="text-xl font-bold text-white mb-4 tracking-tight group-hover:text-red-400 transition-colors uppercase truncate">{ct.chapter}</h3>
+      
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 text-xs font-bold text-white/40">
+          <Clock size={14} className="text-red-400" />
+          <span>{countdown}</span>
+        </div>
+        <div className="flex items-center justify-between mt-2 pt-3 border-t border-white/5">
+           <div className="flex items-center gap-2">
+             <MapPin size={12} className="text-white/20" />
+             <span className="text-[10px] font-bold text-white/30 uppercase">{ct.room || 'TBA'}</span>
+           </div>
+           {ct.materialLink && (
+             <button className="text-[10px] font-black text-purple-400 uppercase tracking-widest flex items-center gap-1">
+               <LinkIcon size={10} /> Materials
+             </button>
+           )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function Dashboard() {
   const { profile, user, settings } = useAuth();
   const { canManageShared, isApproved } = getPermissions(profile);
+  const { shouldReduceMotion, backdropBlurClass } = usePerformance();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [notices, setNotices] = useState<any[]>([]);
@@ -186,45 +251,53 @@ export default function Dashboard() {
     };
   }, [isApproved]);
 
-  const todayStr = getLocalDateString(new Date());
+  const todayStr = useMemo(() => getLocalDateString(new Date()), []);
   
   // Upcoming classes from globalCalendarEvents
-  const upcomingClasses = events
+  const upcomingClasses = useMemo(() => events
     .filter(e => normalizeEventType(e.type) === 'class' && e.date >= todayStr)
     .sort((a, b) => {
       if (a.date !== b.date) return a.date.localeCompare(b.date);
       return (a.time || '').localeCompare(b.time || '');
-    });
+    }), [events, todayStr]);
 
-  const todayClasses = upcomingClasses.filter(c => c.date === todayStr);
+  const todayClasses = useMemo(() => upcomingClasses.filter(c => c.date === todayStr), [upcomingClasses, todayStr]);
 
   // Upcoming CTs from assessments
-  const upcomingCTs = assessments
+  const upcomingCTs = useMemo(() => assessments
     .filter(a => a.type === 'ct' && isUpcomingDateTime(a.date, a.time))
-    .slice(0, 3);
+    .slice(0, 3), [assessments]);
 
-  const monthStart = startOfMonth(selectedDate);
-  const monthEnd = endOfMonth(monthStart);
-  const startDate = startOfWeek(monthStart);
-  const endDate = endOfWeek(monthEnd);
-  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
+  const monthStart = useMemo(() => startOfMonth(selectedDate), [selectedDate]);
+  const monthEnd = useMemo(() => endOfMonth(monthStart), [monthStart]);
+  const startDate = useMemo(() => startOfWeek(monthStart), [monthStart]);
+  const endDate = useMemo(() => endOfWeek(monthEnd), [monthEnd]);
+  const calendarDays = useMemo(() => eachDayOfInterval({ start: startDate, end: endDate }), [startDate, endDate]);
 
-  const getDayEvents = (day: Date) => {
+  const getDayEvents = useCallback((day: Date) => {
     const dStr = getLocalDateString(day);
     const dayEvents = events.filter(e => e.date === dStr);
     const dayAssessments = assessments.filter(a => a.date === dStr);
     return [...dayEvents, ...dayAssessments];
-  };
+  }, [events, assessments]);
 
-  const handleEventClick = (event: CalendarEvent) => {
+  const groupedClasses = useMemo(() => {
+    return upcomingClasses.reduce((acc: any, curr) => {
+      if (!acc[curr.date]) acc[curr.date] = [];
+      acc[curr.date].push(curr);
+      return acc;
+    }, {});
+  }, [upcomingClasses]);
+
+  const handleEventClick = useCallback((event: CalendarEvent) => {
     setSelectedEvent(event);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleAssessmentClick = (a: Assessment) => {
+  const handleAssessmentClick = useCallback((a: Assessment) => {
     setSelectedAssessment(a);
     setIsAssessmentModalOpen(true);
-  };
+  }, []);
 
   const handleAISubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,11 +316,13 @@ export default function Dashboard() {
     }
   };
 
+  if (loading) return <DashboardSkeleton />;
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
+    <div className={`space-y-6 animate-in fade-in ${shouldReduceMotion ? 'duration-0' : 'duration-700'}`}>
       {/* Quick Overview Stats */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="glass p-5">
+          <div className={`glass p-5 ${backdropBlurClass}`}>
             <div className="text-[12px] text-white/40 uppercase font-bold mb-3 tracking-wider flex items-center justify-between">
               Batch Fund Balance
               {settings?.fundGoalAmount && (
@@ -265,7 +340,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-        <div className="glass p-5">
+        <div className={`glass p-5 ${backdropBlurClass}`}>
           <div className="text-[12px] text-white/40 uppercase font-bold mb-3 tracking-wider">Upcoming CTs</div>
           <div className="text-2xl font-bold text-white leading-none">
             {upcomingCTs.length} <span className="text-[14px] text-white/40 font-medium">Scheduled</span>
@@ -275,7 +350,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="glass p-5">
+        <div className={`glass p-5 ${backdropBlurClass}`}>
           <div className="text-[12px] text-white/40 uppercase font-bold mb-3 tracking-wider">Classes Today</div>
           <div className="text-2xl font-bold text-white leading-none">
             {todayClasses.length} <span className="text-[14px] text-white/40 font-medium">Periods</span>
@@ -290,7 +365,7 @@ export default function Dashboard() {
       <section className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-6 min-h-0">
         <div className="flex flex-col gap-6">
           {/* Upcoming Schedule (Global Classes) */}
-          <div className="glass p-6 flex flex-col min-h-[400px]">
+          <div className={`glass p-6 flex flex-col min-h-[400px] ${backdropBlurClass}`}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-white uppercase tracking-tighter">Class Schedule</h3>
               <div className="text-[10px] font-black text-purple-400 uppercase tracking-[0.2em]">Next 7 Days</div>
@@ -298,40 +373,20 @@ export default function Dashboard() {
             
             <div className="flex-1 space-y-4 overflow-y-auto scrollbar-hide pr-1">
               {upcomingClasses.length > 0 ? (
-                // Group by date
-                Object.entries(
-                  upcomingClasses.reduce((acc: any, curr) => {
-                    if (!acc[curr.date]) acc[curr.date] = [];
-                    acc[curr.date].push(curr);
-                    return acc;
-                  }, {})
-                ).map(([date, dayEvents]: [string, any]) => (
+                // Grouped by date (pre-calculated with useMemo)
+                Object.entries(groupedClasses).map(([date, dayEvents]: [string, any]) => (
                   <div key={date} className="space-y-2">
                     <div className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-2">
                       {date === todayStr ? 'Today' : formatReadableDate(date)}
                     </div>
                     {dayEvents.map((item: any) => (
-                      <div 
-                        key={item.id}
-                        onClick={() => handleEventClick(item)}
-                        className="flex items-center justify-between p-4 bg-white/[0.03] rounded-xl border border-white/5 hover:border-white/10 transition-all cursor-pointer group"
-                      >
-                        <div className="flex gap-4">
-                          <div className={`w-1 rounded-full ${date === todayStr ? 'accent-gradient' : 'bg-white/10'}`} />
-                          <div>
-                            <div className="font-bold text-white group-hover:text-purple-300 transition-colors uppercase tracking-tight">
-                              {item.subject || item.title}
-                            </div>
-                            <div className="text-[12px] text-white/50 mt-0.5">
-                              {item.room || 'TBA'} • {item.teacher || 'TBA'}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-black text-sm text-white">{item.time}</div>
-                          {item.note && <div className="text-[9px] text-purple-400/60 font-bold uppercase truncate max-w-[80px]">{item.note}</div>}
-                        </div>
-                      </div>
+                      <ClassCard 
+                        key={item.id} 
+                        item={item} 
+                        date={date} 
+                        todayStr={todayStr} 
+                        onClick={handleEventClick} 
+                      />
                     ))}
                   </div>
                 ))
@@ -345,46 +400,13 @@ export default function Dashboard() {
           </div>
 
           {/* Upcoming CTs with Countdowns */}
-          <div className="glass p-6 flex flex-col">
+          <div className={`glass p-6 flex flex-col ${backdropBlurClass}`}>
             <h3 className="text-lg font-bold text-white mb-6 uppercase tracking-tighter">Upcoming Class Tests</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {upcomingCTs.length > 0 ? (
-                upcomingCTs.map((ct) => {
-                  const targetDate = parseLocalDateTime(ct.date, ct.time);
-                  const countdown = getCountdownText(targetDate);
-                  
-                  return (
-                    <div 
-                      key={ct.id}
-                      onClick={() => handleAssessmentClick(ct)}
-                      className="glass bg-white/[0.02] p-5 rounded-2xl border-white/5 hover:border-red-500/30 transition-all cursor-pointer group relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 p-3">
-                        <AlertCircle size={16} className="text-red-500/40 group-hover:text-red-500 transition-colors" />
-                      </div>
-                      <h4 className="text-sm font-black text-white/60 mb-1 uppercase tracking-widest">{ct.subject}</h4>
-                      <h3 className="text-xl font-bold text-white mb-4 tracking-tight group-hover:text-red-400 transition-colors uppercase truncate">{ct.chapter}</h3>
-                      
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-white/40">
-                          <Clock size={14} className="text-red-400" />
-                          <span>{countdown}</span>
-                        </div>
-                        <div className="flex items-center justify-between mt-2 pt-3 border-t border-white/5">
-                           <div className="flex items-center gap-2">
-                             <MapPin size={12} className="text-white/20" />
-                             <span className="text-[10px] font-bold text-white/30 uppercase">{ct.room || 'TBA'}</span>
-                           </div>
-                           {ct.materialLink && (
-                             <button className="text-[10px] font-black text-purple-400 uppercase tracking-widest flex items-center gap-1">
-                               <LinkIcon size={10} /> Materials
-                             </button>
-                           )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
+                upcomingCTs.map((ct) => (
+                  <CTCard key={ct.id} ct={ct} onClick={handleAssessmentClick} />
+                ))
               ) : (
                 <div className="col-span-full py-12 glass flex flex-col items-center justify-center text-white/20 border-dashed">
                   <BookOpen size={32} className="mb-4" />
