@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { collection, onSnapshot, query, orderBy, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { Calendar, Plus, Clock, MapPin, Trash2, Edit, AlertCircle, Info, ChevronRight, Edit2 } from 'lucide-react';
@@ -9,6 +9,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { handleFirestoreError, OperationType } from '@/lib/firestore-errors';
 import { getPermissions } from '@/lib/permissions';
 import { getLocalDateString, getWeekdayName } from '@/lib/date';
+import { usePerformance } from '@/context/PerformanceContext';
 
 interface Routine {
   id: string;
@@ -25,6 +26,9 @@ interface Routine {
 export default function RoutinePage() {
   const { user, profile } = useAuth();
   const { isApproved } = getPermissions(profile);
+  const { lowDataMode, isSlowNetwork } = usePerformance();
+  const shouldReduceMotion = lowDataMode || isSlowNetwork;
+  
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,29 +38,23 @@ export default function RoutinePage() {
   const [deleteTarget, setDeleteTarget] = useState<Routine | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
+  const fetchRoutines = useCallback(async () => {
     if (!user) return;
-    const q = query(collection(db, 'users', user.uid, 'routines'), orderBy('time', 'asc'));
-    const unsubscribe = onSnapshot(
-      q, 
-      (s) => {
-        setRoutines(s.docs.map(d => ({ id: d.id, ...d.data() })) as any);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("SNAPSHOT ERROR", {
-          path: `users/${user.uid}/routines`,
-          code: error.code,
-          message: error.message,
-          uid: user.uid,
-          role: profile?.role,
-          status: profile?.status
-        });
-        setLoading(false);
-      }
-    );
-    return () => unsubscribe();
-  }, [user, profile]);
+    setLoading(true);
+    try {
+      const q = query(collection(db, 'users', user.uid, 'routines'), orderBy('time', 'asc'));
+      const snapshot = await getDocs(q);
+      setRoutines(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as any);
+    } catch (err) {
+      console.error("Error fetching routine:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchRoutines();
+  }, [fetchRoutines]);
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 

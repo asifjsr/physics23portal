@@ -10,6 +10,17 @@
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
   body {
     @apply bg-dark text-[#e2e8f0] font-sans antialiased selection:bg-purple-500/30;
     margin: 0;
@@ -17,6 +28,16 @@
     overflow-x: hidden;
     overflow-y: auto;
   }
+}
+
+/* Performance Classes */
+.low-performance-blur {
+  backdrop-filter: none !important;
+  background-color: rgba(5, 5, 7, 0.95) !important;
+}
+
+.optimized-image {
+  content-visibility: auto;
 }
 
 @layer components {

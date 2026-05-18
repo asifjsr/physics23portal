@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { collection, onSnapshot, query, orderBy, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { Calculator, Plus, Trash2, Edit, Save, RefreshCw, BarChart3, TrendingUp, Info, Edit2 } from 'lucide-react';
@@ -8,6 +8,7 @@ import { Modal } from '@/components/Modal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { handleFirestoreError, OperationType } from '@/lib/firestore-errors';
 import { getPermissions } from '@/lib/permissions';
+import { usePerformance } from '@/context/PerformanceContext';
 
 interface BackupRecord {
   id: string;
@@ -28,6 +29,9 @@ interface BackupRecord {
 export default function BackupCounter() {
   const { user, profile } = useAuth();
   const { isApproved } = getPermissions(profile);
+  const { lowDataMode, isSlowNetwork } = usePerformance();
+  const shouldReduceMotion = lowDataMode || isSlowNetwork;
+
   const [records, setRecords] = useState<BackupRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,29 +51,23 @@ export default function BackupCounter() {
   };
   const [formData, setFormData] = useState(initialForm);
 
-  useEffect(() => {
+  const fetchRecords = useCallback(async () => {
     if (!user) return;
-    const q = query(collection(db, 'users', user.uid, 'backupRecords'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(
-      q, 
-      (s) => {
-        setRecords(s.docs.map(d => ({ id: d.id, ...d.data() })) as any);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("SNAPSHOT ERROR", {
-          path: `users/${user.uid}/backupRecords`,
-          code: error.code,
-          message: error.message,
-          uid: user.uid,
-          role: profile?.role,
-          status: profile?.status
-        });
-        setLoading(false);
-      }
-    );
-    return () => unsubscribe();
-  }, [user, profile]);
+    setLoading(true);
+    try {
+      const q = query(collection(db, 'users', user.uid, 'backupRecords'), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      setRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as any);
+    } catch (err) {
+      console.error("Error fetching backup records:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchRecords();
+  }, [fetchRecords]);
 
   const calculateResults = (data: typeof initialForm) => {
     const s1Best = Math.max(data.section1CT1, data.section1CT2);

@@ -1,6 +1,7 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApp, getApps } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAiC7aLG5i91Jk7xQag8AHFmPctzQr66g4",
@@ -12,7 +13,13 @@ const firebaseConfig = {
   measurementId: "G-3GED52HYE5"
 };
 
-export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const googleProvider = new GoogleAuthProvider();
+// Initialize Firebase App only once
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+
+// Initialize modular services
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const googleProvider = new GoogleAuthProvider();
+
+export { app, auth, db, storage, googleProvider };

@@ -2,5 +2,7 @@
   "name": "KU PHYSICS 23",
   "description": "A premium class management portal for Physics 23 batch containing routine, tasks, batch fund, and AI assistant.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

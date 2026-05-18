@@ -53,7 +53,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { getLocalDateString, formatReadableDate } from '@/lib/date';
 import { parseLocalDateTime, getCountdownText, isUpcomingDateTime } from '@/lib/countdown';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
-import { usePerformance } from '@/hooks/usePerformance';
+import { usePerformance } from '@/context/PerformanceContext';
 
 interface CalendarEvent {
   id: string;
@@ -154,7 +154,10 @@ const CTCard = React.memo(({ ct, onClick }: any) => {
 export default function Dashboard() {
   const { profile, user, settings } = useAuth();
   const { canManageShared, isApproved } = getPermissions(profile);
-  const { shouldReduceMotion, backdropBlurClass } = usePerformance();
+  const { lowDataMode, isSlowNetwork } = usePerformance();
+  const shouldReduceMotion = lowDataMode || isSlowNetwork;
+  const backdropBlurClass = lowDataMode ? 'low-performance-blur' : 'backdrop-blur-md';
+  
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [notices, setNotices] = useState<any[]>([]);
@@ -197,14 +200,28 @@ export default function Dashboard() {
       setLoading(false);
     };
 
-    const unsubEvents = onSnapshot(query(collection(db, 'globalCalendarEvents'), orderBy('date', 'asc')), 
+    // Optimization: Only listen to upcoming events or limit to recent ones
+    const today = getLocalDateString(new Date());
+    
+    // Future events + recent ones
+    const unsubEvents = onSnapshot(query(
+      collection(db, 'globalCalendarEvents'), 
+      where('date', '>=', today),
+      orderBy('date', 'asc'),
+      limit(50)
+    ), 
       (snapshot) => {
         setEvents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CalendarEvent)));
       },
       errorHandler('globalCalendarEvents')
     );
 
-    const unsubAssessments = onSnapshot(query(collection(db, 'assessments'), orderBy('date', 'asc')), 
+    const unsubAssessments = onSnapshot(query(
+      collection(db, 'assessments'), 
+      where('date', '>=', today),
+      orderBy('date', 'asc'),
+      limit(20)
+    ), 
       (snapshot) => {
         setAssessments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Assessment)));
       },

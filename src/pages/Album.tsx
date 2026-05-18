@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, startAfter, QueryDocumentSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Image, ExternalLink, Calendar, User, Maximize2, X, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Image, ExternalLink, Calendar, User, Maximize2, X, ChevronLeft, ChevronRight, Trash2, Plus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getPermissions } from '@/lib/permissions';
-import { doc, deleteDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/lib/firestore-errors';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { usePerformance } from '@/hooks/usePerformance';
+import { usePerformance } from '@/context/PerformanceContext';
 
 interface Photo {
   id: string;
@@ -34,7 +33,7 @@ const PhotoCard = React.memo(({ photo, idx, onClick, shouldReduceMotion, backdro
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"
-      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+      className="w-full h-full object-cover optimized-image group-hover:scale-110 transition-transform duration-700" 
       alt={photo.title} 
     />
     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-6">
@@ -49,39 +48,55 @@ const PhotoCard = React.memo(({ photo, idx, onClick, shouldReduceMotion, backdro
   </motion.div>
 ));
 
+const PHOTO_BATCH_SIZE = 18;
+
 export default function Album() {
   const { profile } = useAuth();
   const { canManageShared } = getPermissions(profile);
-  const { shouldReduceMotion, backdropBlurClass } = usePerformance();
+  const { lowDataMode, isSlowNetwork } = usePerformance();
+  const shouldReduceMotion = lowDataMode || isSlowNetwork;
+  const backdropBlurClass = lowDataMode ? 'low-performance-blur' : 'backdrop-blur-md';
+
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
+  const [hasMore, setHasMore] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    // Limit to fetching 48 images (divisible by grid columns)
-    const q = query(collection(db, 'album'), orderBy('createdAt', 'desc'), limit(48));
-    const unsubscribe = onSnapshot(
-      q, 
-      (s) => {
-        setPhotos(s.docs.map(d => ({ id: d.id, ...d.data() })) as any);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("SNAPSHOT ERROR", {
-          path: "album",
-          code: error.code,
-          message: error.message,
-          uid: profile?.uid,
-          role: profile?.role,
-          status: profile?.status
-        });
-        setLoading(false);
+  const fetchPhotos = useCallback(async (isNextPage = false) => {
+    if (isNextPage) setLoadingMore(true);
+    else setLoading(true);
+
+    try {
+      const q = isNextPage && lastDoc
+        ? query(collection(db, 'album'), orderBy('createdAt', 'desc'), startAfter(lastDoc), limit(PHOTO_BATCH_SIZE))
+        : query(collection(db, 'album'), orderBy('createdAt', 'desc'), limit(PHOTO_BATCH_SIZE));
+
+      const snapshot = await getDocs(q);
+      const newPhotos = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Photo[];
+      
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+      setHasMore(snapshot.docs.length === PHOTO_BATCH_SIZE);
+
+      if (isNextPage) {
+        setPhotos(prev => [...prev, ...newPhotos]);
+      } else {
+        setPhotos(newPhotos);
       }
-    );
-    return () => unsubscribe();
-  }, [profile]);
+    } catch (err: any) {
+      console.error("Error fetching album:", err);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [lastDoc]);
+
+  useEffect(() => {
+    fetchPhotos();
+  }, [fetchPhotos]);
 
   const handlePhotoClick = useCallback((photo: Photo) => {
     setSelectedPhoto(photo);
@@ -120,6 +135,19 @@ export default function Album() {
           <Image className="text-gray-700 mb-4 mx-auto" size={48} />
           <p className="text-gray-500 font-bold uppercase tracking-widest uppercase tracking-widest">No memories shared yet</p>
           <p className="text-xs text-gray-600 mt-2">Admins and CRs can add photos to the album.</p>
+        </div>
+      )}
+
+      {hasMore && (
+        <div className="flex justify-center pt-8">
+          <button 
+            onClick={() => fetchPhotos(true)}
+            disabled={loadingMore}
+            className="btn-secondary h-12 px-8 flex items-center gap-2 text-xs font-black uppercase tracking-widest"
+          >
+            {loadingMore ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+            {loadingMore ? 'Loading More...' : 'Load More Memories'}
+          </button>
         </div>
       )}
 

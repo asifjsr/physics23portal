@@ -2,6 +2,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Phone, Droplet, Facebook, Linkedin, FileText, Users as UsersIcon, Globe, ExternalLink, Calendar, User as UserIcon } from 'lucide-react';
 
+import { usePerformance } from '@/context/PerformanceContext';
+
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -10,6 +12,7 @@ interface ProfileModalProps {
 }
 
 export function ProfileModal({ isOpen, onClose, person, backdropBlurClass }: ProfileModalProps) {
+  const { lowDataMode } = usePerformance();
   if (!person) return null;
 
   const getInitials = (name: string) => {
@@ -51,9 +54,10 @@ export function ProfileModal({ isOpen, onClose, person, backdropBlurClass }: Pro
                   {person.imageUrl ? (
                     <img 
                       src={person.imageUrl} 
-                      className="w-full h-full object-cover" 
+                      className="w-full h-full object-cover optimized-image" 
                       alt={person.name} 
                       referrerPolicy="no-referrer"
+                      loading="lazy"
                     />
                   ) : (
                     <span className="text-3xl font-black text-white/10 uppercase">

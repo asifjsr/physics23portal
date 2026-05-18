@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Info, DollarSign, Calendar, Clock, User, Trash2, Edit2, Target, AlertCircle } from 'lucide-react';
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Info, DollarSign, Calendar, Clock, User, Trash2, Edit2, Target, AlertCircle, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getPermissions } from '@/lib/permissions';
 import { doc, deleteDoc } from 'firebase/firestore';

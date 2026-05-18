@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, onSnapshot, query, orderBy, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, setDoc, deleteDoc, updateDoc, limit, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Search, User, Phone, Droplet, Hash, Mail, ChevronRight, UserCircle, Plus, Edit2, Trash2, X, MoreVertical, AlertTriangle, Facebook, Linkedin, FileText, Users as UsersIcon, Globe } from 'lucide-react';
+import { Search, User, Phone, Droplet, Hash, Mail, ChevronRight, UserCircle, Plus, Edit2, Trash2, X, MoreVertical, AlertTriangle, Facebook, Linkedin, FileText, Users as UsersIcon, Globe, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { usePerformance } from '@/context/PerformanceContext';
 import { Modal } from '@/components/Modal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { ProfileModal } from '@/components/ProfileModal';
 import { handleFirestoreError, OperationType } from '@/lib/firestore-errors';
 import { getPermissions } from '@/lib/permissions';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { usePerformance } from '@/hooks/usePerformance';
 
 interface Batchmate {
   id: string;
@@ -62,18 +62,18 @@ const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, on
       {/* Card Decoration */}
       <div className="absolute -top-10 -right-10 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl transition-all group-hover:bg-purple-500/10"></div>
       
-      <div className="relative mb-6">
-        <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-white/5 group-hover:ring-purple-500/20 transition-all shadow-xl flex items-center justify-center bg-white/5">
-          {person.imageUrl ? (
-            <img 
-              src={person.imageUrl} 
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-              alt={person.name} 
-              referrerPolicy="no-referrer"
-              loading="lazy"
-              decoding="async"
-            />
-          ) : (
+    <div className="relative mb-6">
+      <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-white/5 group-hover:ring-purple-500/20 transition-all shadow-xl flex items-center justify-center bg-white/5">
+        {person.imageUrl ? (
+          <img 
+            src={person.imageUrl} 
+            className="w-full h-full object-cover optimized-image group-hover:scale-110 transition-transform duration-500" 
+            alt={person.name} 
+            referrerPolicy="no-referrer"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
             <span className="text-3xl font-black text-white/10 group-hover:text-purple-400 transition-colors uppercase">
               {getInitials(person.name)}
             </span>
@@ -117,13 +117,21 @@ const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, on
   );
 });
 
+const BATCH_SIZE = 24;
+
 export default function Batchmates() {
   const { profile } = useAuth();
   const { canManageShared: canManage } = getPermissions(profile);
-  const { shouldReduceMotion, backdropBlurClass } = usePerformance();
+  const { lowDataMode, isSlowNetwork } = usePerformance();
+  const shouldReduceMotion = lowDataMode || isSlowNetwork;
+  const backdropBlurClass = lowDataMode ? 'low-performance-blur' : 'backdrop-blur-md';
+  
   const [people, setPeople] = useState<Batchmate[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Modal states
@@ -136,38 +144,46 @@ export default function Batchmates() {
   const [formData, setFormData] = useState<Partial<Batchmate>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    const reorderBatchmates = (list: Batchmate[]) => {
-      const specialIds = ["221703", "221730", "221740"];
-      const normal = list.filter(p => !specialIds.includes(p.studentId));
-      const special = list.filter(p => specialIds.includes(p.studentId))
-                         .sort((a, b) => a.studentId.localeCompare(b.studentId));
-      return [...normal, ...special];
-    };
+  const reorderBatchmates = useCallback((list: Batchmate[]) => {
+    const specialIds = ["221703", "221730", "221740"];
+    const normal = list.filter(p => !specialIds.includes(p.studentId));
+    const special = list.filter(p => specialIds.includes(p.studentId))
+                       .sort((a, b) => a.studentId.localeCompare(b.studentId));
+    return [...normal, ...special];
+  }, []);
 
-    const unsubscribe = onSnapshot(
-      query(collection(db, 'batchmates'), orderBy('studentId', 'asc')), 
-      (s) => {
-        const rawData = s.docs.map(d => ({ id: d.id, ...d.data() })) as Batchmate[];
-        setPeople(reorderBatchmates(rawData));
-        setLoading(false);
-        setError(null);
-      },
-      (error) => {
-        console.error("SNAPSHOT ERROR", {
-          path: "batchmates",
-          code: error.code,
-          message: error.message,
-          uid: profile?.uid,
-          role: profile?.role,
-          status: profile?.status
-        });
-        setError(`${error.code}: ${error.message}`);
-        setLoading(false);
+  const fetchPeople = useCallback(async (isNextPage = false) => {
+    if (isNextPage) setLoadingMore(true);
+    else setLoading(true);
+
+    try {
+      const q = isNextPage && lastDoc
+        ? query(collection(db, 'batchmates'), orderBy('studentId', 'asc'), startAfter(lastDoc), limit(BATCH_SIZE))
+        : query(collection(db, 'batchmates'), orderBy('studentId', 'asc'), limit(BATCH_SIZE));
+
+      const snapshot = await getDocs(q);
+      const newPeople = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Batchmate[];
+      
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+      setHasMore(snapshot.docs.length === BATCH_SIZE);
+
+      if (isNextPage) {
+        setPeople(prev => reorderBatchmates([...prev, ...newPeople]));
+      } else {
+        setPeople(reorderBatchmates(newPeople));
       }
-    );
-    return () => unsubscribe();
-  }, [profile]);
+    } catch (err: any) {
+      console.error("Error fetching batchmates:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [lastDoc, reorderBatchmates]);
+
+  useEffect(() => {
+    fetchPeople();
+  }, [fetchPeople]);
 
   const filtered = useMemo(() => people.filter(p => 
     p.name?.toLowerCase().includes(search.toLowerCase()) || 
@@ -315,6 +331,19 @@ export default function Batchmates() {
           </div>
           <p className="text-white/20 font-bold uppercase tracking-widest text-sm">No batchmates found matching your search</p>
           <button onClick={() => setSearch('')} className="text-purple-400 text-xs font-bold mt-4 hover:underline uppercase tracking-widest">Clear Search</button>
+        </div>
+      )}
+
+      {hasMore && !search && (
+        <div className="flex justify-center pt-8">
+          <button 
+            onClick={() => fetchPeople(true)}
+            disabled={loadingMore}
+            className="btn-secondary h-12 px-8 flex items-center gap-2 text-xs font-black uppercase tracking-widest"
+          >
+            {loadingMore ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+            {loadingMore ? 'Loading More...' : 'Load More Batchmates'}
+          </button>
         </div>
       )}
 

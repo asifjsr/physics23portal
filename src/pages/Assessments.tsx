@@ -1,22 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  collection, 
-  onSnapshot, 
-  query, 
-  orderBy, 
-  doc, 
-  setDoc, 
-  deleteDoc, 
-  serverTimestamp,
-  updateDoc
-} from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, setDoc, deleteDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { getPermissions } from '@/lib/permissions';
 import { handleFirestoreError, OperationType } from '@/lib/firestore-errors';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { Modal } from '@/components/Modal';
+import { usePerformance } from '@/context/PerformanceContext';
 import { 
   BookOpen, 
   Plus, 
@@ -65,11 +56,15 @@ const ASSESSMENT_TYPES = [
 export default function Assessments() {
   const { profile, user } = useAuth();
   const { canManageShared: canManage, isApproved } = getPermissions(profile);
+  const { lowDataMode, isSlowNetwork } = usePerformance();
+  const shouldReduceMotion = lowDataMode || isSlowNetwork;
+  const backdropBlurClass = lowDataMode ? 'low-performance-blur' : 'backdrop-blur-md';
+
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
-  
+
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -80,31 +75,24 @@ export default function Assessments() {
     type: 'ct'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const fetchAssessments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const q = query(collection(db, 'assessments'), orderBy('date', 'asc'), orderBy('time', 'asc'));
+      const snapshot = await getDocs(q);
+      setAssessments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Assessment)));
+    } catch (err: any) {
+      console.error("Error fetching assessments:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isApproved) return;
-    
-    const q = query(collection(db, 'assessments'), orderBy('date', 'asc'), orderBy('time', 'asc'));
-    const unsubscribe = onSnapshot(
-      q, 
-      (snapshot) => {
-        setAssessments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Assessment)));
-        setLoading(false);
-      },
-      (error) => {
-        console.error("SNAPSHOT ERROR", {
-          path: "assessments",
-          code: error.code,
-          message: error.message,
-          uid: user?.uid,
-          role: profile?.role,
-          status: profile?.status
-        });
-        setLoading(false);
-      }
-    );
-    return () => unsubscribe();
-  }, [isApproved, profile, user]);
+    fetchAssessments();
+  }, [isApproved, fetchAssessments]);
 
   const handleOpenModal = (item?: Assessment) => {
     if (item) {

@@ -51,14 +51,17 @@ const FALLBACK_BATCHMATES = [
   { studentId: "221740", name: "Md. Tariqul Islam", role: "student", imageUrl: "https://lh3.googleusercontent.com/d/1bC1Evm71isLy0OFW5e3s-rQhkfxdRYJw" }
 ];
 
-import { usePerformance } from '@/hooks/usePerformance';
+import { usePerformance } from '@/context/PerformanceContext';
 import { ProfileModal } from '@/components/ProfileModal';
 
-const BatchmateMiniCard = React.memo(({ person, idx, onClick, shouldReduceMotion }: any) => {
+const BatchmateMiniCard = React.memo(({ person, idx, onClick, shouldReduceMotion, lowDataMode }: any) => {
   const getInitials = (name: string) => {
     return name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??';
   };
   
+  // Skip image loading in aggressive low data mode if no essential image
+  const showImage = !lowDataMode || person.imageUrl;
+
   return (
     <motion.div
       initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 20 }}
@@ -69,10 +72,10 @@ const BatchmateMiniCard = React.memo(({ person, idx, onClick, shouldReduceMotion
       className="glass p-4 text-center group glass-hover cursor-pointer"
     >
       <div className="w-16 h-16 rounded-2xl mx-auto mb-4 overflow-hidden bg-white/5 border border-white/10 group-hover:border-purple-500/30 transition-all flex items-center justify-center">
-        {person.imageUrl ? (
+        {person.imageUrl && showImage ? (
           <img 
             src={person.imageUrl} 
-            className="w-full h-full object-cover" 
+            className="w-full h-full object-cover optimized-image" 
             alt={person.name} 
             referrerPolicy="no-referrer"
             loading="lazy"
@@ -92,7 +95,10 @@ const BatchmateMiniCard = React.memo(({ person, idx, onClick, shouldReduceMotion
 
 export default function Landing() {
   const { user } = useAuth();
-  const { shouldReduceMotion, isMobile, backdropBlurClass } = usePerformance();
+  const { lowDataMode, setLowDataMode, isSlowNetwork } = usePerformance();
+  const shouldReduceMotion = lowDataMode || isSlowNetwork;
+  const backdropBlurClass = lowDataMode ? 'low-performance-blur' : 'backdrop-blur-md';
+  
   const [batchmates, setBatchmates] = useState<any[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<any>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -156,7 +162,7 @@ export default function Landing() {
             <a href="#about" className="text-xs font-bold text-white/50 hover:text-white uppercase tracking-widest transition-colors">About</a>
             <a href="#showcase" className="text-xs font-bold text-white/50 hover:text-white uppercase tracking-widest transition-colors">Batch</a>
             <a href="#features" className="text-xs font-bold text-white/50 hover:text-white uppercase tracking-widest transition-colors">Features</a>
-            <Link to="/people" className="text-xs font-bold text-purple-400 hover:text-purple-300 uppercase tracking-widest transition-colors">People</Link>
+            <a href="#showcase" className="text-xs font-bold text-purple-400 hover:text-purple-300 uppercase tracking-widest transition-colors">People</a>
           </nav>
           <div className="flex items-center gap-4">
             {user ? (
@@ -212,9 +218,9 @@ export default function Landing() {
               <Link to={user ? "/dashboard" : "/login"} className="btn-primary w-full sm:w-auto h-14 flex items-center justify-center text-lg px-12 group uppercase tracking-widest text-sm">
                 Join the Portal <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" />
               </Link>
-              <Link to="/people" className="btn-secondary w-full sm:w-auto h-14 flex items-center justify-center text-lg px-12 uppercase tracking-widest text-sm">
+              <a href="#showcase" className="btn-secondary w-full sm:w-auto h-14 flex items-center justify-center text-lg px-12 uppercase tracking-widest text-sm">
                 Explore Batch
-              </Link>
+              </a>
             </motion.div>
           </section>
 
@@ -264,9 +270,11 @@ export default function Landing() {
                 <h2 className="text-3xl lg:text-5xl font-black text-white uppercase tracking-tighter mb-2">Meet Physics 23</h2>
                 <p className="text-white/40 font-bold uppercase tracking-widest text-xs">A directory of our core members</p>
               </div>
-              <Link to="/people" className="btn-secondary h-12 flex items-center gap-2 text-xs uppercase tracking-widest font-bold">
+              {/* Note: 'View All Batchmates' could still go to /people if preferred, but user said 'meet physics 23 te niye asbe' */}
+              {/* So I will change this to just hide or point to dashboard if they want full access, but for now scrolling to top of section is what they asked */}
+              <a href="#showcase" className="btn-secondary h-12 flex items-center gap-2 text-xs uppercase tracking-widest font-bold">
                 View All Batchmates <ChevronRight size={14} />
-              </Link>
+              </a>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
@@ -331,11 +339,31 @@ export default function Landing() {
       {/* Footer */}
       <footer className="py-12 border-t border-white/5 mx-4">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 px-4">
-          <div className="flex items-center gap-3">
-            <Atom className="text-purple-400" size={20} />
-            <span className="font-extrabold text-white uppercase tracking-wider text-sm">Physics 23 Portal</span>
+          <div className="flex flex-col items-center md:items-start gap-4">
+            <div className="flex items-center gap-3">
+              <Atom className="text-purple-400" size={20} />
+              <span className="font-extrabold text-white uppercase tracking-wider text-sm">Physics 23 Portal</span>
+            </div>
+            
+            <button 
+              onClick={() => setLowDataMode(!lowDataMode)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-[10px] font-black uppercase tracking-widest ${
+                lowDataMode 
+                  ? 'bg-purple-500/20 border-purple-500/50 text-purple-400' 
+                  : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
+              }`}
+            >
+              <Zap size={10} className={lowDataMode ? 'fill-current' : ''} />
+              {lowDataMode ? 'Low Data Mode On' : 'Low Data Mode Off'}
+              {isSlowNetwork && !lowDataMode && (
+                <span className="ml-1 text-yellow-500/80">(Slow Network Detected)</span>
+              )}
+            </button>
           </div>
-          <p className="text-white/20 text-[10px] font-bold uppercase tracking-widest">&copy; 2026 Dept. of Physics. All Rights Reserved.</p>
+          <p className="text-white/20 text-[10px] font-bold uppercase tracking-widest leading-loose text-center md:text-right">
+            &copy; 2026 Dept. of Physics. All Rights Reserved.<br/>
+            Optimized for low-bandwidth mobile environments.
+          </p>
         </div>
       </footer>
     </div>
