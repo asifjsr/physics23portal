@@ -17,6 +17,8 @@ interface Batchmate {
   studentId: string;
   name: string;
   role: string;
+  position?: string;
+  discipline?: string;
   imageUrl: string;
   email: string;
   phone: string;
@@ -37,8 +39,8 @@ const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, on
   return (
     <motion.div
       key={person.id}
-      initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
+      initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ delay: shouldReduceMotion ? 0 : idx * 0.05 }}
       onClick={() => onClick(person)}
       className={`glass p-6 flex flex-col items-center group relative overflow-hidden glass-hover border-white/5 cursor-pointer ${backdropBlurClass}`}
@@ -64,62 +66,74 @@ const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, on
       <div className="absolute -top-10 -right-10 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl transition-all group-hover:bg-purple-500/10"></div>
       
     <div className="relative mb-6">
-      <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-white/5 group-hover:ring-purple-500/20 transition-all shadow-xl flex items-center justify-center bg-white/5">
-        {!lowDataMode && person.imageUrl ? (
-          <img 
-            src={person.imageUrl} 
-            className="w-full h-full object-cover optimized-image group-hover:scale-110 transition-transform duration-500" 
-            alt={person.name} 
-            referrerPolicy="no-referrer"
-            loading="lazy"
-            decoding="async"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-        ) : null}
-        <span className={`text-3xl font-black text-white/20 group-hover:text-purple-400 transition-colors uppercase ${!lowDataMode && person.imageUrl ? 'hidden' : ''}`}>
-          {getInitials(person.name)}
-        </span>
+      <div className="w-20 h-20 rounded-2xl overflow-hidden ring-4 ring-white/5 group-hover:ring-purple-500/20 transition-all shadow-xl flex items-center justify-center bg-white/5 relative">
+        {person.imageUrl ? (
+          <>
+            <img 
+              src={person.imageUrl} 
+              className="w-full h-full object-cover object-center optimized-image group-hover:scale-110 transition-transform duration-500" 
+              style={{ imageRendering: 'auto' }}
+              alt={person.name} 
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              decoding="async"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+            <span className="text-3xl font-black text-white/20 group-hover:text-purple-400 transition-colors uppercase hidden">
+              {getInitials(person.name)}
+            </span>
+          </>
+        ) : (
+          <span className="text-3xl font-black text-white/20 group-hover:text-purple-400 transition-colors uppercase">
+            {getInitials(person.name)}
+          </span>
+        )}
       </div>
-        <div className="absolute -bottom-2 -right-2 px-3 py-1 accent-gradient text-white rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg">
-          {person.role || 'STUDENT'}
+        <div className="absolute -bottom-2 -right-4 px-3 py-1 accent-gradient text-white rounded-lg text-[8px] font-bold uppercase tracking-widest shadow-lg whitespace-nowrap">
+          {person.position || person.role || 'STUDENT'}
         </div>
       </div>
 
-      <div className="text-center w-full min-w-0">
-        <h3 className="text-base font-bold text-white truncate group-hover:text-purple-400 transition-colors uppercase tracking-tight">{person.name}</h3>
-        <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.2em] mt-1 mb-6">Student ID: {person.studentId}</p>
+      <div className="flex flex-col items-center w-full min-w-0">
+        <h3 className="text-lg font-bold text-white truncate group-hover:text-purple-400 transition-colors uppercase tracking-wide w-full text-center">{person.name}</h3>
+        <div className="mt-2 mb-6">
+          <div className="px-3 py-1 bg-[#ffffff10] border border-[#ffffff15] rounded-full flex items-center justify-center gap-1.5 shadow-sm group-hover:bg-[#ffffff15] transition-colors">
+            <span className="text-[9px] text-[#94a3b8] uppercase tracking-[0.18em] font-bold">ID</span>
+            <span className="text-[11px] font-bold text-white tracking-wide">{person.studentId}</span>
+          </div>
+        </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 w-full">
           {person.district && (
-            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] text-white/40 group-hover:bg-white/[0.05] transition-colors">
-              <MapPin size={14} className="text-orange-500 opacity-60" />
-              <span className="font-bold uppercase tracking-widest">From:</span>
-              <span className="text-white font-bold ml-auto">{person.district}</span>
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 group-hover:bg-white/10 transition-colors">
+              <MapPin size={14} className="text-cyan-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">From:</span>
+              <span className="text-xs text-slate-100 font-semibold ml-auto tracking-wide truncate">{person.district}</span>
             </div>
           )}
-          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] text-white/40 group-hover:bg-white/[0.05] transition-colors">
-            <Droplet size={14} className="text-red-500 opacity-60" />
-            <span className="font-bold uppercase tracking-widest">Blood:</span>
-            <span className="text-white font-bold ml-auto">{person.bloodGroup || 'N/A'}</span>
+          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 group-hover:bg-white/10 transition-colors">
+            <Droplet size={14} className="text-red-500 group-hover:scale-110 transition-transform" />
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Blood:</span>
+            <span className="text-xs text-slate-100 font-semibold ml-auto tracking-wide">{person.bloodGroup || 'N/A'}</span>
           </div>
           {person.phone && (
-            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] text-white/40 group-hover:bg-white/[0.05] transition-colors">
-              <Phone size={14} className="text-green-500 opacity-60" />
-              <span className="truncate font-bold tracking-widest">{person.phone}</span>
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 group-hover:bg-white/10 transition-colors">
+              <Phone size={14} className="text-green-500 group-hover:scale-110 transition-transform" />
+              <span className="text-xs text-slate-100 font-semibold tracking-wide truncate ml-auto">{person.phone}</span>
             </div>
           )}
           {person.email && (
-            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] text-white/40 group-hover:bg-white/[0.05] transition-colors">
-               <Mail size={14} className="text-blue-500 opacity-60" />
-               <span className="truncate font-bold tracking-widest">{person.email}</span>
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 group-hover:bg-white/10 transition-colors">
+               <Mail size={14} className="text-blue-400 group-hover:scale-110 transition-transform" />
+               <span className="text-xs text-slate-100 font-semibold tracking-wide truncate ml-auto">{person.email}</span>
             </div>
           )}
-          <div className="pt-2">
-            <button className="text-[9px] font-black uppercase tracking-widest text-purple-400/60 group-hover:text-purple-400 transition-colors flex items-center gap-1.5 mx-auto">
-              View Profile <ChevronRight size={10} />
+          <div className="pt-3">
+            <button className="text-[10px] font-bold uppercase tracking-widest text-purple-400/80 group-hover:text-purple-400 transition-colors flex items-center justify-center gap-1.5 mx-auto">
+              View Profile <ChevronRight size={12} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
         </div>
@@ -172,15 +186,28 @@ export default function Batchmates() {
         ? query(collection(db, 'batchmates'), orderBy('studentId', 'asc'), startAfter(currentLastDoc), limit(BATCH_SIZE))
         : query(collection(db, 'batchmates'), orderBy('studentId', 'asc'), limit(BATCH_SIZE));
 
-      const snapshot = await getDocs(q);
+      // Timeout for slow networks
+      let timeoutId: any;
+      const timeoutPromise = new Promise<any>((resolve) => {
+        timeoutId = setTimeout(() => resolve({ empty: true, timedOut: true }), 8000);
+      });
       
-      const newPeople = snapshot.docs.map(d => {
+      const snapshot = await Promise.race([getDocs(q), timeoutPromise]);
+      clearTimeout(timeoutId);
+      
+      if (snapshot.timedOut) {
+         throw new Error("Connection timed out. Showing cached or local data.");
+      }
+
+      const newPeople = snapshot.docs.map((d: any) => {
         const data = d.data();
         return {
           id: d.id,
           studentId: data.studentId || data.id || 'N/A',
           name: data.name || data.fullName || 'Unknown',
           role: data.role || data.position || 'STUDENT',
+          position: data.position || '',
+          discipline: data.discipline || '',
           imageUrl: data.imageUrl || data.photoURL || data.avatarUrl || '',
           email: data.email || '',
           phone: data.phone || '',
@@ -328,13 +355,21 @@ export default function Batchmates() {
       </div>
 
       {error && (
-        <div className="glass-card p-6 border-red-500/20 bg-red-500/5 text-red-400">
-          <p className="font-bold uppercase tracking-widest text-xs mb-2">Sync Error</p>
-          <p className="text-sm opacity-80">{error}</p>
+        <div className="glass-card p-6 border-red-500/20 bg-red-500/5 text-red-400 flex items-center justify-between">
+          <div>
+            <p className="font-bold uppercase tracking-widest text-xs mb-2">Sync Error</p>
+            <p className="text-sm opacity-80">{error}</p>
+          </div>
+          <button 
+            onClick={() => fetchPeople()} 
+            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
+          >
+            Retry
+          </button>
         </div>
       )}
 
-      {loading ? (
+      {loading && filtered.length === 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[1,2,3,4,5,6,7,8].map(i => (
             <Skeleton key={i} className="h-80 w-full" />
@@ -473,6 +508,7 @@ export default function Batchmates() {
               className="glass-input w-full" 
               placeholder="https://imgur.com/..." 
             />
+            <p className="text-[10px] text-yellow-500/80 ml-1 mt-1 font-medium">Re-upload high quality image to improve photo quality.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

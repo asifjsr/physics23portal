@@ -95,7 +95,7 @@ service cloud.firestore {
     }
 
     match /batchmates/{studentId} {
-      allow read: if isSignedIn() && isApproved();
+      allow read: if true;
       allow create, update, delete: if isCR();
     }
 

@@ -61,8 +61,7 @@ const BatchmateMiniCard = React.memo(({ person, idx, onClick, shouldReduceMotion
     return name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??';
   };
   
-  // Skip image loading in aggressive low data mode if no essential image
-  const showImage = !lowDataMode || person.imageUrl;
+  const showImage = !!person.imageUrl;
 
   return (
     <motion.div
@@ -75,24 +74,39 @@ const BatchmateMiniCard = React.memo(({ person, idx, onClick, shouldReduceMotion
     >
       <div className="w-16 h-16 rounded-2xl mx-auto mb-4 overflow-hidden bg-white/5 border border-white/10 group-hover:border-purple-500/30 transition-all flex items-center justify-center">
         {person.imageUrl && showImage ? (
-          <img 
-            src={person.imageUrl} 
-            className="w-full h-full object-cover optimized-image" 
-            alt={person.name} 
-            referrerPolicy="no-referrer"
-            loading="lazy"
-            decoding="async"
-          />
+          <>
+            <img 
+              src={person.imageUrl} 
+              className="w-full h-full object-cover object-center optimized-image" 
+              style={{ imageRendering: 'auto' }}
+              alt={person.name} 
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              decoding="async"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+            <span className="text-lg font-bold text-white/20 group-hover:text-purple-400 transition-colors uppercase hidden">
+              {getInitials(person.name)}
+            </span>
+          </>
         ) : (
           <span className="text-lg font-bold text-white/20 group-hover:text-purple-400 transition-colors uppercase">
             {getInitials(person.name)}
           </span>
         )}
       </div>
-      <h3 className="text-[11px] font-bold text-white uppercase tracking-tight truncate px-2">{person.name}</h3>
-      <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest mt-1">ID: {person.studentId}</p>
+      <h3 className="text-[11px] font-bold text-white uppercase tracking-tight truncate px-2 w-full">{person.name}</h3>
+      <div className="mt-1.5 mb-0.5">
+        <span className="px-2 py-0.5 bg-[#ffffff10] border border-[#ffffff15] rounded-full text-[8px] font-bold text-[#94a3b8] tracking-widest inline-flex items-center gap-1 shadow-sm">
+          <span>ID</span>
+          <span className="text-white tracking-wide">{person.studentId}</span>
+        </span>
+      </div>
       {person.district && (
-        <p className="text-[9px] text-orange-400/80 font-bold uppercase tracking-widest mt-0.5 truncate px-1">
+        <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-widest mt-1 truncate px-1 w-full text-center">
           {person.district}
         </p>
       )}
@@ -115,9 +129,19 @@ export default function Landing() {
     const fetchPhotos = async () => {
       try {
         const q = query(collection(db, 'album'), orderBy('createdAt', 'desc'), limit(8));
-        const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setPhotos(data);
+        
+        let timeoutId: any;
+        const timeoutPromise = new Promise<any>((resolve) => {
+          timeoutId = setTimeout(() => resolve({ empty: true, docs: [] }), 5000);
+        });
+        
+        const snapshot = await Promise.race([getDocs(q), timeoutPromise]);
+        clearTimeout(timeoutId);
+
+        if (!snapshot.empty) {
+          const data = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+          setPhotos(data);
+        }
       } catch (err: any) {
         if (err?.code !== 'permission-denied') {
           console.error("Error fetching photos for landing:", err);
@@ -139,13 +163,31 @@ export default function Landing() {
     const fetchBatchmates = async () => {
       try {
         const q = query(collection(db, 'batchmates'), orderBy('studentId', 'asc'), limit(26));
-        const snapshot = await getDocs(q);
+        
+        let timeoutId: any;
+        const timeoutPromise = new Promise<any>((resolve) => {
+          timeoutId = setTimeout(() => resolve({ empty: true, timedOut: true }), 5000);
+        });
+        
+        const snapshot = await Promise.race([getDocs(q), timeoutPromise]);
+        clearTimeout(timeoutId);
+
         let finalData: any[] = [];
         
-        if (!snapshot.empty) {
-          const dbData = snapshot.docs.map(doc => doc.data());
+        if (!snapshot.empty && !snapshot.timedOut) {
+          const dbData = snapshot.docs.map((doc: any) => {
+            const data = doc.data();
+            return {
+              ...data,
+              id: doc.id,
+              studentId: data.studentId || data.id || 'N/A',
+              name: data.name || data.fullName || 'Unknown',
+              role: data.role || data.position || 'STUDENT',
+              imageUrl: data.imageUrl || data.photoURL || data.avatarUrl || ''
+            };
+          });
           // Merge images from fallback if missing in DB
-          finalData = dbData.map(p => {
+          finalData = dbData.map((p: any) => {
             const fallback = FALLBACK_BATCHMATES.find(f => f.studentId === p.studentId);
             return {
               ...p,

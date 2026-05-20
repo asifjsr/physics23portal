@@ -22,8 +22,8 @@ interface Photo {
 
 const PhotoCard = React.memo(({ photo, idx, onClick, shouldReduceMotion, backdropBlurClass }: any) => (
   <motion.div
-    initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.9 }}
-    animate={{ opacity: 1, scale: 1 }}
+    initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 16 }}
+    animate={{ opacity: 1, y: 0 }}
     transition={{ delay: shouldReduceMotion ? 0 : idx * 0.03 }}
     onClick={() => onClick(photo)}
     className={`glass-card overflow-hidden group cursor-pointer relative aspect-square ${backdropBlurClass}`}
@@ -60,6 +60,7 @@ export default function Album() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
@@ -75,8 +76,19 @@ export default function Album() {
         ? query(collection(db, 'album'), orderBy('createdAt', 'desc'), startAfter(lastDoc), limit(PHOTO_BATCH_SIZE))
         : query(collection(db, 'album'), orderBy('createdAt', 'desc'), limit(PHOTO_BATCH_SIZE));
 
-      const snapshot = await getDocs(q);
-      const newPhotos = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Photo[];
+      let timeoutId: any;
+      const timeoutPromise = new Promise<any>((resolve) => {
+        timeoutId = setTimeout(() => resolve({ empty: true, timedOut: true }), 8000);
+      });
+      
+      const snapshot = await Promise.race([getDocs(q), timeoutPromise]);
+      clearTimeout(timeoutId);
+      
+      if (snapshot.timedOut) {
+         throw new Error("Connection timed out. Showing cached or local data.");
+      }
+
+      const newPhotos = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() })) as Photo[];
       
       setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
       setHasMore(snapshot.docs.length === PHOTO_BATCH_SIZE);
@@ -88,6 +100,7 @@ export default function Album() {
       }
     } catch (err: any) {
       console.error("Error fetching album:", err);
+      setError(err.message || "Failed to load album.");
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -110,6 +123,21 @@ export default function Album() {
           <p className="text-gray-400">Capturing the unforgettable moments of Physics 23 ({photos.length} photos).</p>
         </div>
       </div>
+
+      {error && (
+        <div className="glass-card p-6 border-red-500/20 bg-red-500/5 text-red-400 flex items-center justify-between">
+          <div>
+            <p className="font-bold uppercase tracking-widest text-xs mb-2">Sync Error</p>
+            <p className="text-sm opacity-80">{error}</p>
+          </div>
+          <button 
+            onClick={() => fetchPhotos()} 
+            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">

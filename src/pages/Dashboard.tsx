@@ -243,16 +243,16 @@ export default function Dashboard() {
         weekAgo.setDate(weekAgo.getDate() - 7);
         
         s.docs.forEach(doc => {
-          const data = doc.data();
-          const amount = data.amount || 0;
-          if (data.type === 'income') balance += amount;
-          else balance -= amount;
-
-          const dateStr = data.date;
-          if (dateStr) {
-            const date = new Date(dateStr);
-            if (date >= weekAgo && data.type === 'income') weekly += amount;
-          }
+           // ... logic
+           const data = doc.data();
+           const amount = data.amount || 0;
+           if (data.type === 'income') balance += amount;
+           else balance -= amount;
+           const dateStr = data.date;
+           if (dateStr) {
+             const date = new Date(dateStr);
+             if (date >= weekAgo && data.type === 'income') weekly += amount;
+           }
         });
         setFundBalance(balance);
         setWeekIncome(weekly);
@@ -260,8 +260,14 @@ export default function Dashboard() {
       },
       errorHandler('classFund')
     );
+    
+    // Fallback: don't keep loading skeleton forever
+    const loadTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 4000);
 
     return () => {
+      clearTimeout(loadTimeout);
       unsubEvents();
       unsubAssessments();
       unsubNotices();

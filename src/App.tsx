@@ -62,47 +62,45 @@ export default function App() {
                 {/* Protected App Routes */}
                 <Route path="/dashboard" element={
                   <ProtectedRoute>
-                    <Layout><Dashboard /></Layout>
+                    <Layout><ErrorBoundary><Dashboard /></ErrorBoundary></Layout>
                   </ProtectedRoute>
                 } />
                 <Route path="/people" element={
-                  <ProtectedRoute>
-                    <Layout><Batchmates /></Layout>
-                  </ProtectedRoute>
+                  <Layout><ErrorBoundary><Batchmates /></ErrorBoundary></Layout>
                 } />
                 <Route path="/fund" element={
                   <ProtectedRoute>
-                    <Layout><BatchFund /></Layout>
+                    <Layout><ErrorBoundary><BatchFund /></ErrorBoundary></Layout>
                   </ProtectedRoute>
                 } />
                 <Route path="/routine" element={
                   <ProtectedRoute>
-                    <Layout><Routine /></Layout>
+                    <Layout><ErrorBoundary><Routine /></ErrorBoundary></Layout>
                   </ProtectedRoute>
                 } />
                 <Route path="/tasks" element={
                   <ProtectedRoute>
-                    <Layout><Tasks /></Layout>
+                    <Layout><ErrorBoundary><Tasks /></ErrorBoundary></Layout>
                   </ProtectedRoute>
                 } />
                 <Route path="/backup" element={
                   <ProtectedRoute>
-                    <Layout><BackupCounter /></Layout>
+                    <Layout><ErrorBoundary><BackupCounter /></ErrorBoundary></Layout>
                   </ProtectedRoute>
                 } />
                 <Route path="/assessments" element={
                   <ProtectedRoute>
-                    <Layout><Assessments /></Layout>
+                    <Layout><ErrorBoundary><Assessments /></ErrorBoundary></Layout>
                   </ProtectedRoute>
                 } />
                 <Route path="/ai" element={
                   <ProtectedRoute>
-                    <Layout><AIChatbot /></Layout>
+                    <Layout><ErrorBoundary><AIChatbot /></ErrorBoundary></Layout>
                   </ProtectedRoute>
                 } />
                 <Route path="/admin" element={
                   <ProtectedRoute requireAdmin={true} requireCR={true}>
-                    <Layout><AdminPanel /></Layout>
+                    <Layout><ErrorBoundary><AdminPanel /></ErrorBoundary></Layout>
                   </ProtectedRoute>
                 } />
 

@@ -62,6 +62,7 @@ export default function Assessments() {
 
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -78,12 +79,59 @@ export default function Assessments() {
   
   const fetchAssessments = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const q = query(collection(db, 'assessments'), orderBy('date', 'asc'), orderBy('time', 'asc'));
-      const snapshot = await getDocs(q);
-      setAssessments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Assessment)));
+      
+      let timeoutId: any;
+      const timeoutPromise = new Promise<any>((resolve) => {
+        timeoutId = setTimeout(() => resolve({ empty: true, timedOut: true }), 8000);
+      });
+      
+      let snapshot;
+      try {
+        snapshot = await Promise.race([getDocs(q), timeoutPromise]);
+        clearTimeout(timeoutId);
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        // If it throws an index error, try the fallback query
+        if (err?.message?.toLowerCase().includes("index") || err?.code === 'failed-precondition' || err?.code === 'permission-denied') {
+          console.warn("Missing index or permission issue detected. Falling back to single-field sorting...");
+          
+          const fallbackQ = query(collection(db, 'assessments'), orderBy('date', 'asc'));
+          const fallbackTimeoutPromise = new Promise<any>((resolve) => {
+            timeoutId = setTimeout(() => resolve({ empty: true, timedOut: true }), 8000);
+          });
+          
+          snapshot = await Promise.race([getDocs(fallbackQ), fallbackTimeoutPromise]);
+          clearTimeout(timeoutId);
+          
+          if (snapshot.timedOut) {
+            throw new Error("Connection timed out. Showing cached or local data.");
+          }
+          
+          let data = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Assessment));
+          data.sort((a: Assessment, b: Assessment) => {
+             if (a.date === b.date) {
+                return (a.time || '').localeCompare(b.time || '');
+             }
+             return 0; // Already sorted by date via DB
+          });
+          setAssessments(data);
+          return;
+        } else {
+          throw err;
+        }
+      }
+      
+      if (snapshot.timedOut) {
+         throw new Error("Connection timed out. Showing cached or local data.");
+      }
+      
+      setAssessments(snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Assessment)));
     } catch (err: any) {
       console.error("Error fetching assessments:", err);
+      setError(err.message || "Failed to load assessments.");
     } finally {
       setLoading(false);
     }
@@ -182,6 +230,21 @@ export default function Assessments() {
         )}
       </header>
 
+      {error && (
+        <div className="glass-card p-6 border-red-500/20 bg-red-500/5 text-red-400 flex items-center justify-between">
+          <div>
+            <p className="font-bold uppercase tracking-widest text-xs mb-2">Sync Error</p>
+            <p className="text-sm opacity-80">{error}</p>
+          </div>
+          <button 
+            onClick={() => fetchAssessments()} 
+            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       <section className="flex flex-col gap-6">
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1 relative group">
@@ -213,9 +276,14 @@ export default function Assessments() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <AnimatePresence mode="popLayout">
-            {filteredAssessments.length > 0 ? (
-              filteredAssessments.map((a) => {
+          {loading && filteredAssessments.length === 0 ? (
+            [1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="animate-pulse bg-white/5 rounded-[2rem] h-64 border border-white/5"></div>
+            ))
+          ) : (
+            <AnimatePresence mode="popLayout">
+              {filteredAssessments.length > 0 ? (
+                filteredAssessments.map((a) => {
                 const typeInfo = ASSESSMENT_TYPES.find(t => t.id === a.type) || ASSESSMENT_TYPES[0];
                 const TypeIcon = typeInfo.icon;
                 
@@ -302,7 +370,8 @@ export default function Assessments() {
                 </div>
               )
             )}
-          </AnimatePresence>
+            </AnimatePresence>
+          )}
         </div>
       </section>
 

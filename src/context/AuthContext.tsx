@@ -42,15 +42,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
+    let authTimeout: any;
+
     try {
+      // Release loading state after 5 seconds aggressively to prevent ERR_CONNECTION_TIMED_OUT user perception
+      authTimeout = setTimeout(() => {
+        if (loading) {
+          console.warn("Auth observer timeout. Falling back to unauthenticated.");
+          setLoading(false);
+        }
+      }, 5000);
+
       // 1. Listen for Auth Changes
       const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+        clearTimeout(authTimeout);
         setUser(u);
         if (!u) {
           setProfile(null);
           setLoading(false);
         }
       }, (error) => {
+        clearTimeout(authTimeout);
         console.error("Auth observer error:", error);
         setAuthError(error.message);
         setLoading(false);
@@ -63,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setSettings(snapshot.data() as AppSettings);
         } else {
           // Init settings if missing
-          setDoc(settingsRef, { loginApprovalRequired: false });
+          setDoc(settingsRef, { loginApprovalRequired: false }).catch(console.warn);
           setSettings({ loginApprovalRequired: false });
         }
       }, (error) => {
@@ -71,10 +83,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       return () => {
+        clearTimeout(authTimeout);
         unsubscribeAuth();
         unsubscribeSettings();
       };
     } catch (err: any) {
+      clearTimeout(authTimeout);
       console.error("Critical Auth/DB initialization error:", err);
       setAuthError(err.message || "Failed to initialize standard security services.");
       setLoading(false);
@@ -111,9 +125,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!user) return;
 
+    let profileTimeout = setTimeout(() => {
+      console.warn("Profile load timeout. Falling back.");
+      setLoading(false);
+    }, 5000);
+
     // 3. Load/Sync User Profile
     const profileRef = doc(db, 'users', user.uid);
     const unsubscribeProfile = onSnapshot(profileRef, async (snapshot) => {
+      clearTimeout(profileTimeout);
       if (snapshot.exists()) {
         const data = snapshot.data() as UserProfile;
         setProfile(data);
@@ -131,13 +151,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: new Date(),
           lastLoginAt: new Date(),
         };
-        await setDoc(profileRef, newProfile);
+        await setDoc(profileRef, newProfile).catch(console.warn);
         setProfile(newProfile);
         setLoading(false);
       }
     });
 
-    return () => unsubscribeProfile();
+    return () => {
+      clearTimeout(profileTimeout);
+      unsubscribeProfile();
+    }
   }, [user, settings]);
 
   const isAdmin = profile?.role === 'admin' && profile?.status === 'approved';
