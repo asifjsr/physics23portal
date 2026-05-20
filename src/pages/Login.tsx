@@ -66,7 +66,7 @@ export default function Login() {
           <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tight">
             {isRegister ? 'Portal Join' : 'Portal Access'}
           </h2>
-          <p className="text-white/40 text-xs font-bold uppercase tracking-widest leading-none">Dept. of Physics 23</p>
+          <p className="text-white/40 text-xs font-bold uppercase tracking-widest leading-none">Physics '23</p>
         </div>
 
         <div className="glass p-8 shadow-2xl backdrop-blur-2xl">

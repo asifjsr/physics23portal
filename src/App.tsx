@@ -50,6 +50,7 @@ export default function App() {
                 {/* Public Routes */}
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/album" element={<Layout><Album /></Layout>} />
 
                 {/* Pending Route */}
                 <Route path="/pending" element={
@@ -67,11 +68,6 @@ export default function App() {
                 <Route path="/people" element={
                   <ProtectedRoute>
                     <Layout><Batchmates /></Layout>
-                  </ProtectedRoute>
-                } />
-                <Route path="/album" element={
-                  <ProtectedRoute>
-                    <Layout><Album /></Layout>
                   </ProtectedRoute>
                 } />
                 <Route path="/fund" element={

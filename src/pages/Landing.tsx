@@ -14,7 +14,9 @@ import {
   LayoutDashboard,
   CheckSquare,
   Calculator,
-  User
+  User,
+  Facebook,
+  Youtube
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
@@ -89,6 +91,11 @@ const BatchmateMiniCard = React.memo(({ person, idx, onClick, shouldReduceMotion
       </div>
       <h3 className="text-[11px] font-bold text-white uppercase tracking-tight truncate px-2">{person.name}</h3>
       <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest mt-1">ID: {person.studentId}</p>
+      {person.district && (
+        <p className="text-[9px] text-orange-400/80 font-bold uppercase tracking-widest mt-0.5 truncate px-1">
+          {person.district}
+        </p>
+      )}
     </motion.div>
   );
 });
@@ -100,8 +107,25 @@ export default function Landing() {
   const backdropBlurClass = lowDataMode ? 'low-performance-blur' : 'backdrop-blur-md';
   
   const [batchmates, setBatchmates] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<any[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<any>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchPhotos = async () => {
+      try {
+        const q = query(collection(db, 'album'), orderBy('createdAt', 'desc'), limit(8));
+        const snapshot = await getDocs(q);
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setPhotos(data);
+      } catch (err: any) {
+        if (err?.code !== 'permission-denied') {
+          console.error("Error fetching photos for landing:", err);
+        }
+      }
+    };
+    fetchPhotos();
+  }, []);
 
   useEffect(() => {
     const reorderBatchmates = (list: any[]) => {
@@ -162,6 +186,7 @@ export default function Landing() {
             <a href="#about" className="text-xs font-bold text-white/50 hover:text-white uppercase tracking-widest transition-colors">About</a>
             <a href="#showcase" className="text-xs font-bold text-white/50 hover:text-white uppercase tracking-widest transition-colors">Batch</a>
             <a href="#features" className="text-xs font-bold text-white/50 hover:text-white uppercase tracking-widest transition-colors">Features</a>
+            <Link to="/album" className="text-xs font-bold text-white/50 hover:text-white uppercase tracking-widest transition-colors">Album</Link>
             <a href="#showcase" className="text-xs font-bold text-purple-400 hover:text-purple-300 uppercase tracking-widest transition-colors">People</a>
           </nav>
           <div className="flex items-center gap-4">
@@ -199,15 +224,16 @@ export default function Landing() {
               Physics <span className="gradient-text">23</span>
             </motion.h1>
             
-            <motion.p 
+            <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-white/50 text-lg lg:text-xl max-w-3xl mb-12 font-medium"
+              className="text-white/50 text-lg lg:text-xl max-w-3xl mb-12 font-medium flex flex-col gap-2"
             >
-              Our centralized class portal for routines, CT trackers, assignment vaults, 
-              batch fund transparency, and digital album. Built by the batch, for the batch.
-            </motion.p>
+              <p className="font-bold text-white/80">Tachyon | Physics '23</p>
+              <p className="italic">Faster than light, stronger than limits.</p>
+              <p>Official page of the Physics 23 Batch Khulna University – Tachyon.</p>
+            </motion.div>
 
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -326,6 +352,47 @@ export default function Landing() {
               ))}
             </div>
           </section>
+
+          {/* Album Showcase Section */}
+          {photos.length > 0 && (
+            <section id="album" className="w-full mb-32">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                <div>
+                  <h2 className="text-3xl lg:text-5xl font-black text-white uppercase tracking-tighter mb-2">Public Album</h2>
+                  <p className="text-white/40 font-bold uppercase tracking-widest text-xs">Our latest memories</p>
+                </div>
+                <Link to="/album" className="btn-secondary h-12 flex items-center gap-2 text-xs uppercase tracking-widest font-bold">
+                  View Full Album <ChevronRight size={14} />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {photos.slice(0, 8).map((photo, idx) => (
+                  <motion.div
+                    key={photo.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: idx * 0.05 }}
+                    className="relative aspect-square w-full rounded-2xl overflow-hidden glass group cursor-pointer"
+                  >
+                    <img 
+                      src={photo.imageUrl} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 optimized-image" 
+                      alt={photo.title || photo.caption || "Batch photo"}
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+                      {(photo.title || photo.caption) && (
+                        <p className="text-white text-xs font-bold truncate w-full">{photo.title || photo.caption}</p>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </section>
+          )}
+
         </div>
       </main>
 
@@ -360,10 +427,20 @@ export default function Landing() {
               )}
             </button>
           </div>
-          <p className="text-white/20 text-[10px] font-bold uppercase tracking-widest leading-loose text-center md:text-right">
-            &copy; 2026 Dept. of Physics. All Rights Reserved.<br/>
-            Optimized for low-bandwidth mobile environments.
-          </p>
+          <div className="flex flex-col items-center md:items-end gap-4">
+            <div className="flex gap-4">
+              <a href="https://www.facebook.com/kuphysics23" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-purple-400 transition-colors">
+                <Facebook size={20} />
+              </a>
+              <a href="https://www.youtube.com/@Ku_physics23" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-purple-400 transition-colors">
+                <Youtube size={20} />
+              </a>
+            </div>
+            <p className="text-white/20 text-[10px] font-bold uppercase tracking-widest leading-loose text-center md:text-right">
+              &copy; 2026 Physics '23. All Rights Reserved.<br/>
+              Optimized for low-bandwidth mobile environments.
+            </p>
+          </div>
         </div>
       </footer>
     </div>

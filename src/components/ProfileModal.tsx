@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Phone, Droplet, Facebook, Linkedin, FileText, Users as UsersIcon, Globe, ExternalLink, Calendar, User as UserIcon } from 'lucide-react';
+import { X, Mail, Phone, Droplet, Facebook, Linkedin, FileText, Users as UsersIcon, Globe, ExternalLink, Calendar, User as UserIcon, MapPin } from 'lucide-react';
 
 import { usePerformance } from '@/context/PerformanceContext';
 
@@ -87,13 +87,24 @@ export function ProfileModal({ isOpen, onClose, person, backdropBlurClass }: Pro
                     {person.role || 'STUDENT'}
                   </div>
                   <div className="text-[10px] text-white/20 font-black uppercase tracking-widest">
-                    Roll: {person.studentId}
+                    Student ID: {person.studentId}
                   </div>
                 </div>
               </div>
 
               {/* Details Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+                {person.district && (
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center gap-3 sm:col-span-2">
+                    <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
+                      <MapPin size={18} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">District</p>
+                      <p className="text-sm font-bold text-white truncate">{person.district}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500">
                     <Droplet size={18} />

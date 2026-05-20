@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   collection, 
@@ -34,7 +34,8 @@ import {
   Target,
   Search,
   MoreVertical,
-  ChevronRight
+  ChevronRight,
+  Upload
 } from 'lucide-react';
 import { Modal } from '@/components/Modal';
 import { ConfirmModal } from '@/components/ConfirmModal';
@@ -102,6 +103,70 @@ export default function AdminPanel() {
   const [notices, setNotices] = useState<any[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    try {
+      const text = await file.text();
+      let data: any[] = [];
+
+      if (file.name.toLowerCase().endsWith('.json') || file.type === 'application/json') {
+        data = JSON.parse(text);
+      } else if (file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv' || file.type === 'application/vnd.ms-excel') {
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+        if (lines.length > 0) {
+          const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+          for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+            const obj: any = {};
+            headers.forEach((h, index) => {
+              obj[h] = values[index] !== undefined ? values[index] : '';
+            });
+            data.push(obj);
+          }
+        }
+      } else {
+        throw new Error('Unsupported file format. Please upload a CSV or JSON file.');
+      }
+
+      if (!Array.isArray(data)) {
+        throw new Error('Data must be an array of objects.');
+      }
+
+      const batch = writeBatch(db);
+      let count = 0;
+      data.forEach(item => {
+        const id = item.studentId || item.id;
+        if (!id) return;
+        
+        const docRef = doc(db, 'batchmates', String(id));
+        batch.set(docRef, {
+          ...item,
+          studentId: String(id), // ensure studentId exists
+          updatedAt: new Date(),
+          updatedBy: profile?.name || 'Admin',
+        }, { merge: true });
+        count++;
+      });
+
+      if (count > 0) {
+        await batch.commit();
+        alert(`Successfully imported/updated ${count} batchmates!`);
+      } else {
+        alert("No valid records found. Make sure each row contains a 'studentId' or 'id'.");
+      }
+    } catch (err: any) {
+      alert(`Bulk upload failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+      e.target.value = '';
+    }
+  };
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
@@ -469,9 +534,28 @@ export default function AdminPanel() {
                    photos.length
                  })
                </h3>
-               <button onClick={() => handleOpenModal(activeTab)} className="btn-primary py-2 px-4 text-xs flex items-center gap-2 h-auto rounded-lg">
-                 <Plus size={16} /> Add New {activeTab === 'album' ? 'Photo' : activeTab.slice(0, -1)}
-               </button>
+               <div className="flex gap-2">
+                 {activeTab === 'people' && (
+                   <>
+                     <input
+                       type="file"
+                       ref={fileInputRef}
+                       onChange={handleBulkUpload}
+                       className="hidden"
+                       accept=".csv,.json,application/json,text/csv"
+                     />
+                     <button 
+                       onClick={() => fileInputRef.current?.click()} 
+                       className="btn-secondary py-2 px-4 text-xs flex items-center gap-2 h-auto rounded-lg border-blue-500/20 text-blue-400"
+                     >
+                       <Upload size={16} /> Bulk Upload
+                     </button>
+                   </>
+                 )}
+                 <button onClick={() => handleOpenModal(activeTab)} className="btn-primary py-2 px-4 text-xs flex items-center gap-2 h-auto rounded-lg">
+                   <Plus size={16} /> Add New {activeTab === 'album' ? 'Photo' : activeTab.slice(0, -1)}
+                 </button>
+               </div>
             </div>
 
             {activeTab === 'fund' && (

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, query, orderBy, doc, setDoc, deleteDoc, updateDoc, limit, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Search, User, Phone, Droplet, Hash, Mail, ChevronRight, UserCircle, Plus, Edit2, Trash2, X, MoreVertical, AlertTriangle, Facebook, Linkedin, FileText, Users as UsersIcon, Globe, Loader2 } from 'lucide-react';
+import { Search, User, Phone, Droplet, Hash, Mail, ChevronRight, UserCircle, Plus, Edit2, Trash2, X, MoreVertical, AlertTriangle, Facebook, Linkedin, FileText, Users as UsersIcon, Globe, Loader2, MapPin } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { Modal } from '@/components/Modal';
@@ -21,6 +21,7 @@ interface Batchmate {
   email: string;
   phone: string;
   bloodGroup: string;
+  district?: string;
   facebook?: string;
   linkedin?: string;
   cv?: string;
@@ -28,7 +29,7 @@ interface Batchmate {
   bio?: string;
 }
 
-const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, onClick, shouldReduceMotion, backdropBlurClass }: any) => {
+const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, onClick, shouldReduceMotion, backdropBlurClass, lowDataMode }: any) => {
   const getInitials = (name: string) => {
     return name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??';
   };
@@ -64,7 +65,7 @@ const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, on
       
     <div className="relative mb-6">
       <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-white/5 group-hover:ring-purple-500/20 transition-all shadow-xl flex items-center justify-center bg-white/5">
-        {person.imageUrl ? (
+        {!lowDataMode && person.imageUrl ? (
           <img 
             src={person.imageUrl} 
             className="w-full h-full object-cover optimized-image group-hover:scale-110 transition-transform duration-500" 
@@ -72,13 +73,16 @@ const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, on
             referrerPolicy="no-referrer"
             loading="lazy"
             decoding="async"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+            }}
           />
-        ) : (
-            <span className="text-3xl font-black text-white/10 group-hover:text-purple-400 transition-colors uppercase">
-              {getInitials(person.name)}
-            </span>
-          )}
-        </div>
+        ) : null}
+        <span className={`text-3xl font-black text-white/20 group-hover:text-purple-400 transition-colors uppercase ${!lowDataMode && person.imageUrl ? 'hidden' : ''}`}>
+          {getInitials(person.name)}
+        </span>
+      </div>
         <div className="absolute -bottom-2 -right-2 px-3 py-1 accent-gradient text-white rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg">
           {person.role || 'STUDENT'}
         </div>
@@ -86,9 +90,16 @@ const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, on
 
       <div className="text-center w-full min-w-0">
         <h3 className="text-base font-bold text-white truncate group-hover:text-purple-400 transition-colors uppercase tracking-tight">{person.name}</h3>
-        <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.2em] mt-1 mb-6">Roll: {person.studentId}</p>
+        <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.2em] mt-1 mb-6">Student ID: {person.studentId}</p>
 
         <div className="space-y-2">
+          {person.district && (
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] text-white/40 group-hover:bg-white/[0.05] transition-colors">
+              <MapPin size={14} className="text-orange-500 opacity-60" />
+              <span className="font-bold uppercase tracking-widest">From:</span>
+              <span className="text-white font-bold ml-auto">{person.district}</span>
+            </div>
+          )}
           <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] text-white/40 group-hover:bg-white/[0.05] transition-colors">
             <Droplet size={14} className="text-red-500 opacity-60" />
             <span className="font-bold uppercase tracking-widest">Blood:</span>
@@ -152,17 +163,36 @@ export default function Batchmates() {
     return [...normal, ...special];
   }, []);
 
-  const fetchPeople = useCallback(async (isNextPage = false) => {
+  const fetchPeople = useCallback(async (isNextPage = false, currentLastDoc = lastDoc) => {
     if (isNextPage) setLoadingMore(true);
     else setLoading(true);
 
     try {
-      const q = isNextPage && lastDoc
-        ? query(collection(db, 'batchmates'), orderBy('studentId', 'asc'), startAfter(lastDoc), limit(BATCH_SIZE))
+      const q = isNextPage && currentLastDoc
+        ? query(collection(db, 'batchmates'), orderBy('studentId', 'asc'), startAfter(currentLastDoc), limit(BATCH_SIZE))
         : query(collection(db, 'batchmates'), orderBy('studentId', 'asc'), limit(BATCH_SIZE));
 
       const snapshot = await getDocs(q);
-      const newPeople = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Batchmate[];
+      
+      const newPeople = snapshot.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          studentId: data.studentId || data.id || 'N/A',
+          name: data.name || data.fullName || 'Unknown',
+          role: data.role || data.position || 'STUDENT',
+          imageUrl: data.imageUrl || data.photoURL || data.avatarUrl || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          bloodGroup: data.bloodGroup || '',
+          district: data.district || '',
+          facebook: data.facebook || '',
+          linkedin: data.linkedin || '',
+          cv: data.cv || '',
+          clubs: data.clubs || '',
+          bio: data.bio || ''
+        } as Batchmate;
+      });
       
       setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
       setHasMore(snapshot.docs.length === BATCH_SIZE);
@@ -171,6 +201,7 @@ export default function Batchmates() {
         setPeople(prev => reorderBatchmates([...prev, ...newPeople]));
       } else {
         setPeople(reorderBatchmates(newPeople));
+        console.log("Batchmates loaded:", newPeople.length, newPeople);
       }
     } catch (err: any) {
       console.error("Error fetching batchmates:", err);
@@ -179,11 +210,11 @@ export default function Batchmates() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [lastDoc, reorderBatchmates]);
+  }, [reorderBatchmates]);
 
   useEffect(() => {
     fetchPeople();
-  }, [fetchPeople]);
+  }, []);
 
   const filtered = useMemo(() => people.filter(p => 
     p.name?.toLowerCase().includes(search.toLowerCase()) || 
@@ -200,6 +231,7 @@ export default function Batchmates() {
       email: '',
       phone: '',
       bloodGroup: '',
+      district: '',
       facebook: '',
       linkedin: '',
       cv: '',
@@ -321,6 +353,7 @@ export default function Batchmates() {
               onClick={handleOpenProfile}
               shouldReduceMotion={shouldReduceMotion}
               backdropBlurClass={backdropBlurClass}
+              lowDataMode={lowDataMode}
             />
           ))}
         </div>
@@ -337,7 +370,7 @@ export default function Batchmates() {
       {hasMore && !search && (
         <div className="flex justify-center pt-8">
           <button 
-            onClick={() => fetchPeople(true)}
+            onClick={() => fetchPeople(true, lastDoc)}
             disabled={loadingMore}
             className="btn-secondary h-12 px-8 flex items-center gap-2 text-xs font-black uppercase tracking-widest"
           >
@@ -399,6 +432,16 @@ export default function Batchmates() {
                 placeholder="B+" 
               />
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest ml-1">District</label>
+            <input 
+              value={formData.district || ''} 
+              onChange={e => setFormData({...formData, district: e.target.value})} 
+              className="glass-input w-full" 
+              placeholder="e.g. Dhaka, Khulna" 
+            />
           </div>
 
           <div className="space-y-1">

@@ -99,13 +99,23 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             </Link>
           )}
           
-          <button 
-            onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-white/20 hover:text-red-400 hover:bg-red-500/5 transition-all w-full text-left"
-          >
-            <LogOut size={18} />
-            <span className="text-sm font-bold tracking-tight">System Out</span>
-          </button>
+          {profile ? (
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-3 px-4 py-3 rounded-2xl text-white/20 hover:text-red-400 hover:bg-red-500/5 transition-all w-full text-left"
+            >
+              <LogOut size={18} />
+              <span className="text-sm font-bold tracking-tight">System Out</span>
+            </button>
+          ) : (
+            <Link 
+              to="/login"
+              className="flex items-center gap-3 px-4 py-3 rounded-2xl text-white/20 hover:text-purple-400 hover:bg-purple-500/10 transition-all w-full text-left"
+            >
+              <LogOut size={18} className="rotate-180" />
+              <span className="text-sm font-bold tracking-tight">System In</span>
+            </Link>
+          )}
         </div>
       </aside>
 
@@ -121,7 +131,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             ClassVerse
           </div>
           <img 
-            src={profile?.photoURL || `https://ui-avatars.com/api/?name=${profile?.name}&background=8b5cf6&color=fff`} 
+            src={profile?.photoURL || `https://ui-avatars.com/api/?name=${profile?.name || 'Guest'}&background=8b5cf6&color=fff`} 
             className="w-10 h-10 rounded-xl object-cover border border-white/10" 
             alt="Avatar"
           />
@@ -131,7 +141,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <header className="hidden lg:flex items-center justify-between px-10 py-8">
           <div>
             <h1 className="text-3xl font-black text-white tracking-tight leading-none">
-              {profile?.name ? `Sup, ${profile.name.split(' ')[0]}?` : 'Welcome Back'}
+              {profile?.name ? `Sup, ${profile.name.split(' ')[0]}?` : 'Welcome, Guest'}
             </h1>
             <p className="text-sm text-white/30 font-bold uppercase tracking-widest mt-2">
               {format(new Date(), 'EEEE, do MMMM')} <span className="mx-2 opacity-20">|</span> Terminal Active
@@ -140,12 +150,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
           <div className="flex items-center gap-6">
              <div className="text-right">
-                <div className="text-xs font-black text-white uppercase tracking-wider">{profile?.name}</div>
-                <div className="text-[10px] text-purple-400 font-bold uppercase tracking-[0.2em]">{profile?.role || 'STUDENT'}</div>
+                <div className="text-xs font-black text-white uppercase tracking-wider">{profile?.name || 'Guest'}</div>
+                <div className="text-[10px] text-purple-400 font-bold uppercase tracking-[0.2em]">{profile?.role || 'GUEST'}</div>
              </div>
              <div className="w-12 h-12 rounded-2xl overflow-hidden border border-white/10 p-0.5 glass">
                 <img 
-                  src={profile?.photoURL || `https://ui-avatars.com/api/?name=${profile?.name}&background=8b5cf6&color=fff`} 
+                  src={profile?.photoURL || `https://ui-avatars.com/api/?name=${profile?.name || 'Guest'}&background=8b5cf6&color=fff`} 
                   className="w-full h-full rounded-xl object-cover" 
                   alt="Avatar"
                 />
@@ -219,13 +229,24 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     <span>Admin Controls</span>
                   </Link>
                 )}
-                <button 
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-white/20 font-bold"
-                >
-                  <LogOut size={20} />
-                  <span>Logout</span>
-                </button>
+                {profile ? (
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-white/20 font-bold"
+                  >
+                    <LogOut size={20} />
+                    <span>Logout</span>
+                  </button>
+                ) : (
+                  <Link 
+                    to="/login"
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-white/20 font-bold"
+                  >
+                    <LogOut size={20} className="rotate-180" />
+                    <span>Login</span>
+                  </Link>
+                )}
               </div>
             </motion.aside>
           </>
