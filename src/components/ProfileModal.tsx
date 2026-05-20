@@ -126,7 +126,7 @@ export function ProfileModal({ isOpen, onClose, person, backdropBlurClass }: Pro
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">District</p>
-                      <p className="text-sm font-semibold text-slate-100 tracking-wide truncate">{person.district}</p>
+                      <p className="text-sm font-semibold text-cyan-200 tracking-wide truncate drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">{person.district}</p>
                     </div>
                   </div>
                 )}

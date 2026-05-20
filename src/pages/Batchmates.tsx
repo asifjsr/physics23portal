@@ -111,7 +111,7 @@ const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, on
             <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 group-hover:bg-white/10 transition-colors">
               <MapPin size={14} className="text-cyan-400 group-hover:scale-110 transition-transform" />
               <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">From:</span>
-              <span className="text-xs text-slate-100 font-semibold ml-auto tracking-wide truncate">{person.district}</span>
+              <span className="text-xs text-cyan-200 font-semibold ml-auto pl-2 tracking-wide truncate drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">{person.district}</span>
             </div>
           )}
           <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 group-hover:bg-white/10 transition-colors">
