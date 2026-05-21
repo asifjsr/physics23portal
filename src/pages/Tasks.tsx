@@ -18,7 +18,8 @@ import {
   MoreVertical,
   X,
   Edit2,
-  ChevronRight
+  ChevronRight,
+  Star
 } from 'lucide-react';
 import { Modal } from '@/components/Modal';
 import { getLocalDateString } from '@/lib/date';
@@ -29,6 +30,7 @@ interface Task {
   dueDate: string;
   status: 'pending' | 'done';
   note: string;
+  isPriority?: boolean;
 }
 
 interface Note {
@@ -43,6 +45,7 @@ export default function TasksPage() {
   const { user, profile } = useAuth();
   const { isApproved } = getPermissions(profile);
   const [activeTab, setActiveTab] = useState<'tasks' | 'notes'>('tasks');
+  const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'done' | 'priority'>('all');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +136,13 @@ export default function TasksPage() {
     });
   };
 
+  const toggleTaskPriority = async (task: Task) => {
+    if (!user) return;
+    await updateDoc(doc(db, 'users', user.uid, 'tasks', task.id), {
+      isPriority: !task.isPriority
+    });
+  };
+
   const handleDelete = async () => {
     if (!user || !deleteTarget) return;
     setIsDeleting(true);
@@ -169,10 +179,33 @@ export default function TasksPage() {
         </button>
       </div>
 
+      {activeTab === 'tasks' && (
+        <div className="flex flex-wrap items-center gap-2">
+          {['all', 'pending', 'done', 'priority'].map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setTaskFilter(filter as any)}
+              className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                taskFilter === filter 
+                  ? 'bg-purple-600/20 text-purple-400 border border-purple-500/50' 
+                  : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300 border border-white/5'
+              }`}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {activeTab === 'tasks' ? (
           <div className="lg:col-span-2 space-y-4">
-             {tasks.map(t => (
+             {tasks.filter(t => {
+               if (taskFilter === 'pending') return t.status === 'pending';
+               if (taskFilter === 'done') return t.status === 'done';
+               if (taskFilter === 'priority') return t.isPriority;
+               return true;
+             }).map(t => (
                <div key={t.id} className="glass-card p-6 flex items-center gap-6 group">
                   <button onClick={() => toggleTaskStatus(t)} className={`flex-shrink-0 transition-all ${t.status === 'done' ? 'text-green-500' : 'text-gray-600 hover:text-purple-400'}`}>
                     {t.status === 'done' ? <CheckCircle2 size={24} /> : <Circle size={24} />}
@@ -188,6 +221,9 @@ export default function TasksPage() {
                     </div>
                   </div>
                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={() => toggleTaskPriority(t)} className={`p-2 rounded-lg bg-white/5 ${t.isPriority ? 'text-yellow-400' : 'text-gray-400 hover:text-yellow-400'}`}>
+                      <Star size={16} className={t.isPriority ? 'fill-current' : ''} />
+                    </button>
                     <button onClick={() => handleOpenModal('tasks', t)} className="p-2 rounded-lg bg-white/5 text-blue-400"><Edit2 size={16} /></button>
                     <button 
                       onClick={() => {
@@ -201,10 +237,15 @@ export default function TasksPage() {
                   </div>
                </div>
              ))}
-             {tasks.length === 0 && (
+             {tasks.filter(t => {
+               if (taskFilter === 'pending') return t.status === 'pending';
+               if (taskFilter === 'done') return t.status === 'done';
+               if (taskFilter === 'priority') return t.isPriority;
+               return true;
+             }).length === 0 && (
                <div className="glass-card p-24 text-center">
                   <CheckSquare size={48} className="text-gray-700 mx-auto mb-4" />
-                  <p className="text-gray-500 font-bold uppercase tracking-widest">No pending tasks</p>
+                  <p className="text-gray-500 font-bold uppercase tracking-widest">No matching tasks</p>
                </div>
              )}
           </div>
