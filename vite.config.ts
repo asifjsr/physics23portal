@@ -6,6 +6,7 @@ import {defineConfig, loadEnv} from 'vite';
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
+    base: '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
@@ -13,10 +14,11 @@ export default defineConfig(({mode}) => {
       },
     },
     build: {
+      outDir: 'dist',
       rollupOptions: {
         output: {
           manualChunks: {
-            'vendor-base': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
             'vendor-ui': ['framer-motion', 'lucide-react'],
             'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage']
           }
@@ -24,6 +26,7 @@ export default defineConfig(({mode}) => {
       },
       target: 'esnext',
       minify: 'esbuild',
+      chunkSizeWarningLimit: 1000,
     },
     esbuild: {
       drop: mode === 'production' ? ['console', 'debugger'] : [],
