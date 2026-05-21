@@ -273,11 +273,18 @@ export default function Landing() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-white/50 text-lg lg:text-xl max-w-3xl mb-12 font-medium flex flex-col gap-2"
+              className="text-white/50 text-lg lg:text-xl max-w-3xl mb-12 font-medium flex flex-col gap-4"
             >
-              <p className="font-bold text-white/80">Tachyon | Physics '23</p>
-              <p className="italic">Faster than light, stronger than limits.</p>
-              <p>Official page of the Physics 23 Batch Khulna University – Tachyon.</p>
+              <div>
+                <p className="font-bold text-white/80">Tachyon | Physics '23</p>
+                <p className="italic text-sm mt-1">Faster than light, stronger than limits.</p>
+              </div>
+              <p className="text-white/70">
+                Official website of KU Physics 23 Batch, Khulna University — Tachyon.
+              </p>
+              <p className="text-sm">
+                KU Physics 23, also known as Tachyon, is the Physics 23 batch of Khulna University. This portal contains batchmate directory, academic notices, assessments, albums, and important updates.
+              </p>
             </motion.div>
 
             <motion.div 
@@ -454,7 +461,7 @@ export default function Landing() {
           <div className="flex flex-col items-center md:items-start gap-4">
             <div className="flex items-center gap-3">
               <Atom className="text-purple-400" size={20} />
-              <span className="font-extrabold text-white uppercase tracking-wider text-sm">Physics 23 Portal</span>
+              <span className="font-extrabold text-white uppercase tracking-wider text-sm">KU Physics 23 Official Portal</span>
             </div>
             
             <button 
@@ -482,7 +489,7 @@ export default function Landing() {
               </a>
             </div>
             <p className="text-white/20 text-[10px] font-bold uppercase tracking-widest leading-loose text-center md:text-right">
-              &copy; 2026 Physics '23. All Rights Reserved.<br/>
+              &copy; Physics 23 Tachyon | Khulna University<br/>
               Optimized for low-bandwidth mobile environments.
             </p>
           </div>
