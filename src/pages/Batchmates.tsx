@@ -142,7 +142,7 @@ const BatchmateCard = React.memo(({ person, idx, canManage, onEdit, onDelete, on
   );
 });
 
-const BATCH_SIZE = 24;
+const BATCH_SIZE = 40;
 
 export default function Batchmates() {
   const { profile } = useAuth();

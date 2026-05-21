@@ -164,7 +164,7 @@ export default function Landing() {
 
     const fetchBatchmates = async () => {
       try {
-        const q = query(collection(db, 'batchmates'), orderBy('studentId', 'asc'), limit(12)); // Reduced limit
+        const q = query(collection(db, 'batchmates'), orderBy('studentId', 'asc')); // Removed limit
         
         let timeoutId: any;
         const timeoutPromise = new Promise<any>((resolve) => {
@@ -197,7 +197,7 @@ export default function Landing() {
             };
           });
         } else {
-          finalData = FALLBACK_BATCHMATES.slice(0, 12);
+          finalData = FALLBACK_BATCHMATES;
         }
         setBatchmates(reorderBatchmates(finalData));
       } catch (error: any) {
@@ -205,7 +205,7 @@ export default function Landing() {
         if (error?.code !== 'permission-denied') {
           console.error("Error fetching batchmates for landing:", error);
         }
-        setBatchmates(reorderBatchmates(FALLBACK_BATCHMATES.slice(0, 12)));
+        setBatchmates(reorderBatchmates(FALLBACK_BATCHMATES));
       }
     };
     const timer = setTimeout(() => fetchBatchmates(), 500);
